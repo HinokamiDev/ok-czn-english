@@ -134,6 +134,9 @@ class TestOcrNormalisation(unittest.TestCase):
             ("Select up to 2 card(s) to Remove.", "请选择2张要移除的卡牌"),
             ("Select second Combatant to join.", "请选择加入的主战员"),
             ("Select fourth Combatant to join.", "请选择加入的主战员"),
+            ("Choose 1 card to obtain Epiphany.", "请选择1张获得闪光的卡牌"),
+            # What OCR hands back once it has split the count off into a box of its own.
+            ("card to obtain Epiphany", "请选择张获得闪光的卡牌"),
         ):
             with self.subTest(caption=caption):
                 self.assertEqual(expected, ocr_text.pattern_fix(caption))

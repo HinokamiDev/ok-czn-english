@@ -36,6 +36,9 @@ PATTERNS = (
     (re.compile(r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to duplicate.*$", re.I), "请选择{0}张复制的卡牌"),
     (re.compile(r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to (?:spark|trigger).*epiphany.*$", re.I), "请选择{0}张闪光的卡牌"),
     (re.compile(r"^select \w+ combatant to join.*$", re.I), "请选择加入的主战员"),
+    # OCR splits this one round its count, drawn in another colour, and upstream reads the box after it. An empty count
+    # still satisfies upstream's pattern, which then takes it as one.
+    (re.compile(r"^(?:choose )?(\d*) ?cards? to obtain epiphany.*$", re.I), "请选择{0}张获得闪光的卡牌"),
 )
 
 _patched = False

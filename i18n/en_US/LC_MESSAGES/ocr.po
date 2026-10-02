@@ -26,6 +26,10 @@ msgstr "确认"
 msgid "Skip"
 msgstr "跳过"
 
+# From handle_select: _clean_match(box.name, "选择"). The button a card picker confirms with.
+msgid "Select"
+msgstr "选择"
+
 # From handle_get_card: title.name == "获得卡牌"
 msgid "Obtain Card"
 msgstr "获得卡牌"
