@@ -17,7 +17,7 @@ class Globals(QObject):
         super().__init__()
         # Everything English-only lives under src/en/ so upstream's files stay untouched and merges stay clean.
         from src.en import (  # noqa: E501
-            battle, dashboard, deck, desire, dialogue, dice, draft, equipment, events, layout, log_text,
+            battle, dashboard, deck, desire, dialogue, dice, draft, enter, equipment, events, layout, log_text,
             memory_limit, navigation, observe, ocr_text, overrides, persona, picker, pins, rest, rewards, sections, shell,
             shop, shutdown, templates, notify, stuck, upload,
         )
@@ -33,6 +33,7 @@ class Globals(QObject):
         # These edit the mode handler lists, so they must run after the task modules are importable.
         navigation.apply()
         events.apply()
+        enter.apply()
         pins.apply()
         deck.apply()
         desire.apply()
