@@ -21,6 +21,9 @@ BASE_ACTION_POINTS = 3
 # Categories the game deals you rather than ones you choose. A Curse is someone else's doing and a Status
 # Ailment is damage waiting to happen, so neither is ever part of a plan.
 DEALT_TO_YOU = frozenset({"ABNORM", "CURSE"})
+# One of those that does its harm only while held - "If in hand, at the end of the turn", "If this card is in hand",
+# "When this card is Retained" - so playing it is how to be rid of it. Others, like Abyssal Erosion, hurt when played.
+HELD_HARM = re.compile(r"\b(?:if|when) (?:this card is )?in hand|if the turn ends when in hand|when this card is retained", re.I)
 # A card that only makes other cards better, so it wants to land before them.
 SETUP_CATEGORY = "POWER"
 ATTACK_CATEGORY = "ATK"
@@ -231,6 +234,42 @@ def category(name):
         The category, or None for a card the data does not carry.
     """
     return CARD_CATEGORY.get(canonical(name))
+
+
+def description(name):
+    """Give a card's effect text as the client writes it.
+
+    Args:
+        name: The card name, in any spelling.
+
+    Returns:
+        The text, or an empty string for a card the data does not carry.
+    """
+    return DESCRIPTIONS.get(canonical(name)) or ""
+
+
+def worth_clearing(name):
+    """Say whether a card dealt to you is better played than held, once nothing better is left to play.
+
+    Args:
+        name: The card name, in any spelling.
+
+    Returns:
+        True for a Curse or Status Ailment that only hurts while it sits in hand and has a fixed cost.
+    """
+    return category(name) in DEALT_TO_YOU and cost(name) != X_COST and bool(HELD_HARM.search(description(name)))
+
+
+def clearing_order(name):
+    """Order the cards worth clearing: the ones that deal damage first, then the cheapest.
+
+    Args:
+        name: The card name, in any spelling.
+
+    Returns:
+        A sort key, smallest first.
+    """
+    return "damage" not in description(name).lower(), cost(name)
 
 
 def worth_playing(name):

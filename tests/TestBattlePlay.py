@@ -4,17 +4,21 @@
 for it, what happens when the game refuses one, and when a turn should just be ended.
 """
 
+import json
 import sys
 import types
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
+import cv2
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from src.en import battle, board, cards, overrides  # noqa: E402
 from tests.TestBoard import flat, paint, paint_enemy  # noqa: E402
+from tests.fakes import FakeBox  # noqa: E402
 
 # Haru is Justice and Renoa is Void, and these two cards are otherwise identical: one Action Point, an
 # Attack, exactly "100% Damage". So only a weakness read off the screen can order them.
@@ -27,18 +31,21 @@ CURSE = "Anemia"
 ENEMY_AT = (0.50, 0.25)
 
 
-def hand(*names_in_order, keyless=()):
+def hand(*names_in_order, keyless=(), at=None):
     """Build a hand the way `_hand_cards` hands one over.
 
     Args:
         names_in_order: Card names, left to right as they sit on screen.
         keyless: Names whose hotkey the reader failed to pair up, so they cannot be played.
+        at: Left edges of the names as screen fractions, for a hand read short of the counter. Spread evenly
+            when not given, since only the order matters to a hand read in full.
 
     Returns:
         A list of hand-card dicts.
     """
-    return [{"name": name, "key": None if name in keyless else str(index + 1)}
-            for index, name in enumerate(names_in_order)]
+    at = at or [0.2 + 0.1 * index for index in range(len(names_in_order))]
+    return [{"name": name, "key": None if name in keyless else str(index + 1), "left_x": left_x}
+            for index, (name, left_x) in enumerate(zip(names_in_order, at))]
 
 
 @contextmanager
@@ -89,6 +96,14 @@ class TestChoosing(unittest.TestCase):
     def test_a_hand_of_curses_ends_the_turn(self):
         self.assertIsNone(battle.choose(hand(CURSE), cards.Board(), set()))
 
+    def test_spare_points_clear_a_card_that_hurts_while_held(self):
+        # Live: three Bleeds sat out turn after turn with all three points unspent. Bleed deals damage, so it goes
+        # ahead of Parasitic Spores, while Abyssal Erosion does its harm when played and is left alone.
+        for held, cleared in ((("Parasitic Spores", "Bleed"), "Bleed"), (("Abyssal Erosion",), None)):
+            with self.subTest(held=held):
+                chosen = battle.choose(hand(*held), cards.Board(), set())
+                self.assertEqual(cleared, chosen and chosen["name"])
+
     def test_an_empty_hand_ends_the_turn(self):
         self.assertIsNone(battle.choose([], cards.Board(), set()))
 
@@ -136,12 +151,16 @@ class Pressed:
 
     def __init__(self, hand_cards, smart=True, action_points=True, egos=(), weakness=None):
         self.hand_cards = hand_cards
+        # What a template search for the Attack button finds. Nothing, unless a test puts the button up.
+        self.attack_button = None
+        self.clicked = []
         self.config = {overrides.SMART_CARD_PLAY: smart}
         # A fresh list per frame, the way `SortieMode.run` rebinds it after every OCR pass.
         self.all_texts = []
         # A flat frame is enough for the readout, which is judged on how much of it is lit, so white reads as
         # points remaining and black as none. The badges are painted on by the same helpers `TestBoard` uses.
         self.frame = flat(255 if action_points else 0)
+        self.height, self.width = self.frame.shape[:2]
         if weakness:
             paint_enemy(self.frame, ENEMY_AT[0], ENEMY_AT[1], board.ATTRIBUTE_HUES[weakness])
         paint(self.frame, egos)
@@ -150,6 +169,15 @@ class Pressed:
 
     def send_key(self, key):
         self.keys.append(key)
+
+    def box_of_screen(self, *region):
+        return region
+
+    def find_one(self, feature_name=None, box=None):
+        return self.attack_button if feature_name == battle.START_ATTACK else None
+
+    def click_box(self, box):
+        self.clicked.append(box)
 
     def sleep(self, seconds):
         pass
@@ -176,6 +204,8 @@ def upstream(hand_cards, smart=True, action_points=True, egos=(), weakness=None)
     utils._get_config_value = lambda task, key, default: task.config.get(key, default)
     utils_sortie = types.ModuleType("utils_sortie")
     utils_sortie._hand_cards = lambda task: task.hand_cards
+    # The counter, which a test reading the hand short of it sets on the task.
+    utils_sortie._read_hand_count = lambda task: getattr(task, "counter", None) or len(task.hand_cards)
     utils_sortie._is_card_name = lambda name: True
     utils_sortie.name_reads = []
     utils_sortie._hand_card_names = lambda task: utils_sortie.name_reads.append(task.all_texts) or []
@@ -374,9 +404,62 @@ class TestInstalling(unittest.TestCase):
         with upstream(hand(ATTACK, BIG_ATTACK)) as (utils_sortie, task):
             battle.install()
             utils_sortie._try_all_card_keys(task, 2)
-            # The game kept it, so the next frame should reach for the other card instead.
+            # The game kept it twice running, so the next frame should reach for the other card instead.
             utils_sortie._try_all_card_keys(task, 2)
-            self.assertEqual(task.keys, ["2", battle.CONFIRM_KEY, "1", battle.CONFIRM_KEY])
+            utils_sortie._try_all_card_keys(task, 2)
+            self.assertEqual(task.keys, ["2", battle.CONFIRM_KEY, "2", battle.CONFIRM_KEY, "1", battle.CONFIRM_KEY])
+
+    def test_a_refusal_holds_while_ocr_misreads_the_hand(self):
+        # Caught live: a lowered hand read as one card spelled a new way each frame, and as one card then two,
+        # while the counter held at four. Each looked like a different card or a new turn, so the same refused
+        # key was pressed for over a minute.
+        with upstream(hand("Homing Laser L", at=[0.541])) as (utils_sortie, task):
+            task.counter = 2
+            battle.install()
+            utils_sortie._try_all_card_keys(task, 2)
+            task.hand_cards = hand(CURSE, "loming Laser L", at=[0.393, 0.541])
+            utils_sortie._try_all_card_keys(task, 2)
+            task.hand_cards = hand(CURSE, "oming Laser L", at=[0.393, 0.541])
+            utils_sortie._try_all_card_keys(task, 2)
+            self.assertEqual(task.keys, ["2", battle.CONFIRM_KEY, "2", battle.CONFIRM_KEY, battle.END_TURN_KEY])
+
+    def test_text_keyed_past_the_hand_size_is_not_a_card(self):
+        # Live: a Bleed tooltip's lines were read as two cards and upstream counted them on to keys 5 and 9.
+        read = [{"name": "Magnetic Field", "key": "1", "left_x": 0.259}, {"name": "Damage on", "key": "5", "left_x": 0.5},
+                {"name": "Combatants", "key": "5", "left_x": 0.52}, {"name": "Bleed", "key": "9", "left_x": 0.675}]
+        with upstream(read) as (utils_sortie, task):
+            task.counter = 4
+            battle.install()
+            self.assertEqual([("Magnetic Field", "1"), ("Bleed", "4")],
+                             [(card["name"], card["key"]) for card in utils_sortie._hand_cards(task)])
+
+    def test_a_hand_read_short_is_keyed_by_where_each_card_sits(self):
+        # The same lowered hand: only the raised fourth card was read, and upstream keyed it 1 - Pulse Fire, which
+        # cost the point the turn no longer had. Measured off the capture, Homing Laser L's name starts at 0.705.
+        with upstream(hand("Homing Laser L", at=[0.705])) as (utils_sortie, task):
+            task.counter = 4
+            task.all_texts = [FakeBox("Not enough AP.", 0.5, 0.52)]
+            battle.install()
+            utils_sortie._try_all_card_keys(task, 4)
+            self.assertEqual(task.keys, ["4", battle.CONFIRM_KEY])
+
+    def test_a_card_ocr_missed_is_tried_before_the_turn_ends(self):
+        # Live: the counter read three, OCR read only two status cards at keys 2 and 3, and the turn was ended
+        # with Cobalt Light, the unread first card, still in hand and points to spend.
+        with upstream(hand(CURSE, CURSE, at=[0.468, 0.605])) as (utils_sortie, task):
+            task.counter = 3
+            battle.install()
+            utils_sortie._try_all_card_keys(task, 3)
+            utils_sortie._try_all_card_keys(task, 3)
+            self.assertEqual(task.keys, ["1", battle.CONFIRM_KEY, battle.END_TURN_KEY])
+
+    def test_the_games_out_of_points_toast_ends_the_turn(self):
+        # The readout read as lit behind the lowered hand, so only the toast said the turn was spent.
+        with upstream(hand(ATTACK, BIG_ATTACK), action_points=True) as (utils_sortie, task):
+            task.all_texts = [FakeBox("Not enough AP.", 0.5, 0.52)]
+            battle.install()
+            utils_sortie._try_all_card_keys(task, 2)
+            self.assertEqual(task.keys, [battle.END_TURN_KEY])
 
 
 class TestEgoChoice(unittest.TestCase):
@@ -422,6 +505,31 @@ class TestEgoChoice(unittest.TestCase):
             utils_sortie.PAGE_HANDLERS[0](task)
             self.assertEqual(utils_sortie.asked[-1]["other"], "a")
             self.assertEqual(utils_sortie.asked[-1]["wait"], 0.2)
+
+
+class TestStartingTheFight(unittest.TestCase):
+    """A fight entered from a Sortie event opens on an Attack button, and upstream's Sortie frame waited on it forever."""
+
+    def test_the_attack_button_is_pressed_before_upstream_waits(self):
+        with upstream(hand(ATTACK)) as (utils_sortie, task):
+            task.attack_button = types.SimpleNamespace(confidence=0.99)
+            battle.install()
+            self.assertTrue(utils_sortie.PAGE_HANDLERS[0](task))
+            self.assertEqual(task.clicked, [task.attack_button])
+            self.assertEqual(utils_sortie.asked, [])
+
+    def test_upstreams_template_matches_the_global_button(self):
+        # The template was cut from the Chinese client. `attack_button.png` is `START_ATTACK_REGION` cut out of
+        # a Global frame, and the framework's default cutoff is 0.8.
+        annotations = json.loads((REPO_ROOT / "ok_tasks" / "assets" / "coco_annotations.json").read_text(encoding="utf-8"))
+        category = next(c["id"] for c in annotations["categories"] if c["name"] == battle.START_ATTACK)
+        found = next(a for a in annotations["annotations"] if a["category_id"] == category)
+        image = next(i["file_name"] for i in annotations["images"] if i["id"] == found["image_id"])
+        x, y, width, height = found["bbox"]
+        template = cv2.imread(str(REPO_ROOT / "ok_tasks" / "assets" / image))[y:y + height, x:x + width]
+        region = cv2.imread(str(REPO_ROOT / "tests" / "images" / "attack_button.png"))
+        score = cv2.minMaxLoc(cv2.matchTemplate(region, template, cv2.TM_CCOEFF_NORMED))[1]
+        self.assertGreaterEqual(score, 0.8)
 
 if __name__ == "__main__":
     unittest.main()
