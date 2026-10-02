@@ -178,6 +178,12 @@ class TestTellingCardsFromLabels(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertFalse(cards.is_card_name(label))
 
+    def test_a_type_label_misread_by_one_letter_is_not_a_card(self):
+        # "Attacl" and "Attach" were read off live hands, and the fold landed both on the card `Attack!`.
+        for misread in ("Attacl", "Attach", "Jpgrade"):
+            with self.subTest(misread=misread):
+                self.assertFalse(cards.is_card_name(misread))
+
     def test_a_truncated_type_label_is_not_a_card(self):
         # "Basic Atta" was the single most common junk reading in a real Chaos recording.
         for stub in ("Basic Atta", "Status Ailm", "XBasic A", "Basic"):

@@ -12,7 +12,7 @@ from functools import lru_cache
 
 from src.en.game_battle import CARD_CATEGORY, CARD_COST, CARD_OWNER, COMBATANT_ATTRIBUTE, X_COST
 from src.en.game_text import DESCRIPTIONS
-from src.en.quality import fold, index
+from src.en.quality import fold, index, one_edit_apart
 
 # Action Points a turn starts with, before anything in a run changes the figure.
 BASE_ACTION_POINTS = 3
@@ -80,6 +80,7 @@ CARD_INDEX = index(CARD_COST)
 # `Defense` is here because the catalog does rewrite it, to a literal upstream's exclude list never had.
 TYPE_LABELS = ("basic attack", "basic skill", "status ailment", "attack", "skill", "curse", "power",
                "upgrade", "defense", "攻击力", "防御力", "状态异常")
+FOLDED_LABELS = tuple(fold(label) for label in TYPE_LABELS)
 # The type icon shares the label's OCR box and is read as a stray letter or two in front of it, which is why
 # `XBasic A` occurs. `src/en/ocr_text.py` trims the same way for the same reason.
 LABEL_PREFIX = 2
@@ -138,12 +139,19 @@ def is_card_name(reading):
     # Two real cards are named exactly after a label, `Attack!` and `Curse`. `ocr.po` already ruled on both:
     # the label appears under every card of that type while the card is one of 794, so the label wins. Curse
     # cards are never played voluntarily anyway, which leaves `Attack!` as the whole cost of the rule.
-    if any(fold(label) == folded for label in TYPE_LABELS):
+    if folded in FOLDED_LABELS:
         return False
-    if canonical(reading) in CARD_COST:
+    known = canonical(reading)
+    # A label misread by one letter lands on `Attack!` too, so the same ruling covers it. Live, "Attacl" under
+    # Cobalt Light was played as `Attack!` and pressed Cobalt Light's key in its place.
+    if fold(known) in FOLDED_LABELS:
+        return False
+    if known in CARD_COST:
         return True
+    if any(one_edit_apart(folded, label) for label in FOLDED_LABELS):
+        return False
     for trimmed in (folded[cut:] for cut in range(LABEL_PREFIX + 1)):
-        if trimmed and any(fold(label).startswith(trimmed) for label in TYPE_LABELS):
+        if trimmed and any(label.startswith(trimmed) for label in FOLDED_LABELS):
             return False
     return True
 
