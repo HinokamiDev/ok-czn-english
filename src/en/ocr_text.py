@@ -28,13 +28,18 @@ TRAILING_PUNCTUATION = ".,;:!?。，；：！？"
 
 # Some captions are templates the client fills in, so no fixed msgid can ever match them all: the client
 # ships more than fifty "Select {0} card(s) to X." strings, and the count varies per screen. These rewrite the
-# whole family at once. Only the actions a handler actually looks for are listed - an unrecognised screen is
-# better left in English than given an invented literal.
+# whole family at once. The action is spelled out only where a handler keys on it. Every other card caption gets
+# a neutral literal with no action word, so no handler can mistake it for a screen it acts on.
+SELECT_CARDS = r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to "
 PATTERNS = (
-    (re.compile(r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to remove.*$", re.I), "请选择{0}张要移除的卡牌"),
-    (re.compile(r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to convert.*$", re.I), "请选择{0}张转换的卡牌"),
-    (re.compile(r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to duplicate.*$", re.I), "请选择{0}张复制的卡牌"),
-    (re.compile(r"^select (?:up to )?(\d+) cards? ?\(?s?\)? to (?:spark|trigger).*epiphany.*$", re.I), "请选择{0}张闪光的卡牌"),
+    (re.compile(SELECT_CARDS + r"remove.*$", re.I), "请选择{0}张要移除的卡牌"),
+    (re.compile(SELECT_CARDS + r"convert.*$", re.I), "请选择{0}张转换的卡牌"),
+    (re.compile(SELECT_CARDS + r"duplicate.*$", re.I), "请选择{0}张复制的卡牌"),
+    (re.compile(SELECT_CARDS + r"(?:spark|trigger).*epiphany.*$", re.I), "请选择{0}张闪光的卡牌"),
+    (re.compile(SELECT_CARDS + r"move.*draw pile.*$", re.I), "请选择{0}张要移动至抽牌堆的卡牌"),
+    # Must stay below every rule above, or it swallows them. Upstream's in-battle hand picker reads only the count,
+    # and freezes the turn on any caption left in English.
+    (re.compile(SELECT_CARDS + r".*$", re.I), "请选择{0}张卡牌"),
     (re.compile(r"^select \w+ combatant to join.*$", re.I), "请选择加入的主战员"),
     # OCR splits this one round its count, drawn in another colour, and upstream reads the box after it. An empty count
     # still satisfies upstream's pattern, which then takes it as one.

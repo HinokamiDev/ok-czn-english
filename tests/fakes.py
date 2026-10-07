@@ -36,6 +36,14 @@ class FakeBox:
         self.x = center_x * scale_x - self.width / 2
         self.y = center_y * scale_y - self.height / 2
 
+    def area(self):
+        """Return the box area in pixels, which `find_box_at_point` ranks overlapping hits by.
+
+        Returns:
+            Width times height.
+        """
+        return self.width * self.height
+
 
 class EchoApp:
     """Stands in for the running app's translator, which leaves English game names alone."""
