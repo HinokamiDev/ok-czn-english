@@ -100,6 +100,8 @@ NOTICE_TABS = ("notice", "update")
 NOTICE_REGION = (0.10, 0.05, 0.50, 0.18)
 NOTICE_CLOSE = (0.910, 0.119)
 LOBBY_TRIES = 150
+REVEAL_TAP = (0.45, 0.80)
+REVEAL_EVERY = 3
 
 
 def in_lobby(task):
@@ -123,6 +125,12 @@ def toward_lobby(task):
     if any(find_text(task, tab, NOTICE_REGION) is not None for tab in NOTICE_TABS):
         task.click_relative(*NOTICE_CLOSE)
         task.sleep(2)
+        return False
+    # The lobby hides its menus after a while untouched; a tap on an empty spot brings them back (Burak, 12 Oct).
+    # Every third frame, so a screen still loading is not tapped on every frame.
+    if getattr(task, TRIES, 0) % REVEAL_EVERY == REVEAL_EVERY - 1:
+        task.click_relative(*REVEAL_TAP)
+        task.sleep(1)
     return False
 
 

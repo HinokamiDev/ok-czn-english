@@ -135,5 +135,15 @@ class TestRemote(unittest.TestCase):
         remote.step(task)
         self.assertEqual(task.actions, [("click", 0.042, 0.044)])
 
+    def test_a_lobby_with_its_menus_hidden_is_tapped_awake(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask()
+        for _ in range(3):
+            remote.step(task)
+        self.assertEqual(task.actions, [("click", 0.45, 0.8)])
+        task.all_texts = [FakeBox("Simulation", 0.874, 0.353, width=200), FakeBox("Combatants", 0.868, 0.617, width=200)]
+        remote.step(task)
+        self.assertFalse(remote.commands_path().exists())
+
 if __name__ == "__main__":
     unittest.main()
