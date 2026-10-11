@@ -531,15 +531,18 @@ class TestObserveCutOff(unittest.TestCase):
     LIVE = [FakeBox("√", 0.042, 0.045), FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 1", 0.402, 0.04),
             FakeBox("米I'm back", 0.442, 0.436), FakeBox("observe", 0.027, 0.505, width=80), FakeBox("#09", 0.537, 0.502)]
 
-    def test_the_map_is_dragged_right_to_the_chaos_stage(self):
-        from src.en.story_enter import MAP_DRAG_BACK, handle_chapter_forward, handle_map_drag, handle_observe_cut_off
+    def test_the_chaos_stage_is_entered_by_what_shows_of_it(self):
+        from unittest.mock import patch
+        from src.en import autostart
+        from src.en.story_enter import handle_chapter_forward, handle_map_drag, handle_observe_cut_off
         task = MapTask(list(self.LIVE))
-        swiped, pressed = [], []
-        task.swipe_relative = lambda x1, y1, x2, y2, duration=0: swiped.append(((x1, y1), (x2, y2)))
+        swiped, pressed, switched = [], [], []
+        task.swipe_relative = lambda *args, **kwargs: swiped.append(args)
         task.click_relative = lambda x, y: pressed.append((x, y))
         self.assertFalse(handle_chapter_forward(task))
-        self.assertTrue(handle_observe_cut_off(task))
-        self.assertEqual((swiped, pressed), ([MAP_DRAG_BACK], []))
+        with patch.object(autostart, "request_switch", lambda mode, then_story=False: switched.append(mode)):
+            self.assertTrue(handle_observe_cut_off(task))
+        self.assertEqual((task.clicked, swiped, pressed, switched), (["observe"], [], [], ["ChaosMode"]))
         task.all_texts = list(self.LIVE) + [FakeBox("#10", 0.97, 0.5, width=20)]
         self.assertFalse(handle_map_drag(task))
 
@@ -553,7 +556,7 @@ class TestObserveCutOff(unittest.TestCase):
         import time
         from src.en import story_enter
         task = MapTask([FakeBox("Observe", 0.3, 0.505, width=80)])
-        setattr(task, story_enter.MAP_DRAG_BACK_PRESSED, time.monotonic())
+        setattr(task, story_enter.MAP_DRAG_PRESSED, time.monotonic())
         self.assertFalse(story_enter.handle_observe_stage(task))
         self.assertEqual(task.clicked, [])
 

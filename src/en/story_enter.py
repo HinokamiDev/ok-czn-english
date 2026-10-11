@@ -570,13 +570,23 @@ def handle_observe_stage(task, utils_sortie=None):
     Returns:
         True when the stage was entered.
     """
-    from src.en import autostart
     from src.en.screen import in_region
 
     stage = next((box for box in task.all_texts or [] if (box.name or "").strip().casefold() == OBSERVE
                   and in_region(box, OBSERVE_REGION, task.width, task.height)), None)
     if stage is None:
         return False
+    return enter_observe(task, stage, "chaos stage on the story map, entering it and handing the run to the Chaos mode")
+
+
+def enter_observe(task, stage, message):
+    """Click a chaos stage on the story map and hand its run to the Chaos mode.
+
+    Returns:
+        True when the stage was clicked.
+    """
+    from src.en import autostart
+
     # A dragged map slides on for a moment: the click two seconds after a drag landed where the stage had been.
     dragged = max(getattr(task, MAP_DRAG_PRESSED, None) or 0, getattr(task, MAP_DRAG_BACK_PRESSED, None) or 0)
     if dragged and time.monotonic() - dragged < MAP_SETTLE_SECONDS:
@@ -584,7 +594,7 @@ def handle_observe_stage(task, utils_sortie=None):
     last = getattr(task, OBSERVE_PRESSED, None)
     if last and time.monotonic() - last < 30:
         return False
-    task.log_info("chaos stage on the story map, entering it and handing the run to the Chaos mode")
+    task.log_info(message)
     task.click_box(stage)
     setattr(task, OBSERVE_PRESSED, time.monotonic())
     task.sleep(4)
@@ -597,7 +607,6 @@ def handle_observe_stage(task, utils_sortie=None):
 # (snapshot 20261011-222128).
 OBSERVE_EDGE_REGION = (0.0, 0.35, 0.092, 0.70)
 OBSERVE_STEM = "bserve"
-MAP_DRAG_BACK = ((0.30, 0.62), (0.80, 0.62))
 MAP_DRAG_BACK_PRESSED = "_en_map_drag_back_pressed"
 MAP_SETTLE_SECONDS = 4
 
@@ -611,23 +620,18 @@ def observe_at_left_edge(task):
 
 
 def handle_observe_cut_off(task, utils_sortie=None):
-    """Drag the map right when the chaos stage is cut off at its left edge, so it can be entered.
+    """Enter the chaos stage where it is cut off at the map's left edge, by the part of it still on screen.
+
+    Dragging the map right to it flung the map back to its start (snapshot 20261011-222330: Prologue on screen), and
+    the drag left from there flung it past the stage again.
 
     Returns:
-        True when the map was dragged.
+        True when the stage was entered.
     """
     stage = observe_at_left_edge(task)
     if stage is None:
         return False
-    last = getattr(task, MAP_DRAG_BACK_PRESSED, None)
-    if last and time.monotonic() - last < OPTION_COOLDOWN:
-        return False
-    task.log_info(f"chaos stage cut off at the map's left edge ('{stage.name.strip()}'), dragging the map right")
-    (x1, y1), (x2, y2) = MAP_DRAG_BACK
-    task.swipe_relative(x1, y1, x2, y2, duration=0.6)
-    setattr(task, MAP_DRAG_BACK_PRESSED, time.monotonic())
-    task.sleep(1)
-    return True
+    return enter_observe(task, stage, "chaos stage cut off at the map's left edge, entering it by what shows")
 
 
 def handle_story_walk_dialogue(task, utils_sortie=None):
