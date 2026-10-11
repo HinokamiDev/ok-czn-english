@@ -53,6 +53,8 @@ OPTION_COOLDOWN = 5
 HEALTH = re.compile(r"^\d+\s*/\s*\d+$")
 HEALTH_REGION = (0.05, 0.0, 0.45, 0.09)
 MAX_OPTION_LINES = 4
+# The type line printed under a card's name, in English and as the catalog rewrites it. A band carrying one is a hand.
+CARD_TYPE_WORDS = ("attac", "upgrad", "skill", "攻击", "强化", "技能")
 # A story walk's magnifier is drawn at about 90% of upstream's `check` template, so the template scored 0.48 on a
 # live one and was never clicked; scaled to 0.9 it scored 0.92. Upstream's own match is tried first.
 MAGNIFIER_SOURCE = ("ok_tasks/assets/images/1.png", (1051, 477, 59, 63))
@@ -156,8 +158,15 @@ def handle_story_event_option(task, utils_sortie=None):
     from src.en.screen import in_region
 
     utils_sortie = utils_sortie or loaded("utils_sortie")
+    # Never while the fight player has a fight: the hand's card names sit in this band, and with the hand counter
+    # misread they were pressed as walk options, every six seconds ("Dual Creation", "Upgrade", "Attack").
+    fight = getattr(task, "_en_story_fight", None)
+    if fight and fight.get("playing"):
+        return False
     band = [box for box in task.all_texts or [] if in_region(box, OPTION_BAND, task.width, task.height)]
     if not band or len(band) > MAX_OPTION_LINES:
+        return False
+    if any(word in (box.name or "").casefold() for box in band for word in CARD_TYPE_WORDS):
         return False
     encounter = next((box for box in band if ENCOUNTER in (box.name or "").casefold()), None)
     if encounter is None and not on_story_walk(task, utils_sortie):

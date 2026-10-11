@@ -151,6 +151,12 @@ class TestStoryEventOption(unittest.TestCase):
         task = FakeTask([FakeBox("Examine the rubble", 0.5, 0.8)])
         self.assertFalse(handle_story_event_option(task, NO_FIGHT))
 
+    def test_a_hand_with_its_counter_misread_is_not_an_option(self):
+        # Live: the counter went unread and the hand's names were pressed every six seconds.
+        task = FakeTask([FakeBox("1977/1977", 0.212, 0.038), FakeBox("Dual Creatior", 0.578, 0.75),
+                         FakeBox("Upgrad", 0.571, 0.773)])
+        self.assertFalse(handle_story_event_option(task, NO_FIGHT))
+
     def test_a_fights_hand_is_never_taken_for_options(self):
         task = FakeTask([FakeBox("1567 / 1567", 0.2, 0.04), FakeBox("Fatal Strike", 0.45, 0.85)])
         self.assertFalse(handle_story_event_option(task, IN_FIGHT))
