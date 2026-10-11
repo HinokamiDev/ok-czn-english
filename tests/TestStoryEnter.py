@@ -208,6 +208,36 @@ class TestStageComplete(unittest.TestCase):
         self.assertFalse(handle_stage_complete(task))
 
 
+class MapTask(FakeTask):
+    def __init__(self, boxes, entrances=False):
+        super().__init__(boxes)
+        self.entrances = entrances
+
+    def box_of_screen(self, *region):
+        return region
+
+    def find_feature(self, feature_name=None, box=None, **kwargs):
+        return [object()] if self.entrances else []
+
+
+class TestNextChapter(unittest.TestCase):
+    # Snapshot 20261011-201244.
+    LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 1", 0.403, 0.04), FakeBox("After the Battle", 0.197, 0.435),
+            FakeBox("#09", 0.271, 0.504), FakeBox("02", 0.905, 0.471),
+            FakeBox("Desert Kingdom Ruins", 0.809, 0.532, width=300)]
+
+    def test_a_finished_map_moves_on(self):
+        from src.en.story_enter import handle_next_chapter
+        task = MapTask(list(self.LIVE))
+        self.assertTrue(handle_next_chapter(task))
+        self.assertEqual(task.clicked, ["Desert Kingdom Ruins"])
+
+    def test_a_stage_still_to_enter_comes_first(self):
+        from src.en.story_enter import handle_next_chapter
+        task = MapTask(list(self.LIVE), entrances=True)
+        self.assertFalse(handle_next_chapter(task))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

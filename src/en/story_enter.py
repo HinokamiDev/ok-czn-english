@@ -69,6 +69,14 @@ WALK_DIALOGUE_COOLDOWN = 2
 COMPLETE = "complete"
 COMPLETE_REGION = (0.35, 0.52, 0.65, 0.62)
 COMPLETE_PRESSED = "_en_story_complete_pressed"
+# At the end of a chapter the map shows the next one's number and name on the right ("02 / Desert Kingdom Ruins",
+# read live at (0.905, 0.471) and (0.809, 0.532)) behind an arrow. With no stage left to enter, the Story mode stood
+# still there. The arrow is taken only when no stage entrance is on screen.
+NEXT_CHAPTER_NUMBER_REGION = (0.84, 0.40, 0.97, 0.52)
+NEXT_CHAPTER_NAME_REGION = (0.65, 0.50, 0.97, 0.58)
+NEXT_CHAPTER_PRESSED = "_en_story_next_chapter_pressed"
+STAGE_ENTRANCES = ("enterstory", "enterbattle")
+MAP_REGION = (0.085, 0.124, 0.995, 0.874)
 _magnifier = None
 
 _patched = False
@@ -294,6 +302,39 @@ def handle_stage_complete(task, utils_sortie=None):
     return True
 
 
+def handle_next_chapter(task, utils_sortie=None):
+    """Move on to the next chapter once the map has no stage left to enter.
+
+    Args:
+        task: The running task.
+        utils_sortie: Unused; every step takes the same arguments.
+
+    Returns:
+        True when the next chapter was opened.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    texts = task.all_texts or []
+    number = next((box for box in texts if (box.name or "").strip().isdigit() and len(box.name.strip()) == 2
+                   and in_region(box, NEXT_CHAPTER_NUMBER_REGION, width, height)), None)
+    name = next((box for box in texts if len((box.name or "").strip()) > 3
+                 and in_region(box, NEXT_CHAPTER_NAME_REGION, width, height)), None)
+    if number is None or name is None:
+        return False
+    search = task.box_of_screen(*MAP_REGION)
+    if any(task.find_feature(feature_name=feature, box=search) for feature in STAGE_ENTRANCES):
+        return False
+    last = getattr(task, NEXT_CHAPTER_PRESSED, None)
+    if last and time.monotonic() - last < OPTION_COOLDOWN:
+        return False
+    task.log_info(f"no stage left on this map, moving on to chapter {number.name.strip()} '{name.name.strip()}'")
+    task.click_box(name)
+    setattr(task, NEXT_CHAPTER_PRESSED, time.monotonic())
+    task.sleep(2)
+    return True
+
+
 def handle_story_walk_dialogue(task, utils_sortie=None):
     """Run the Story steps this fork adds, first that answers wins.
 
@@ -344,7 +385,7 @@ def walk_dialogue_step(task, utils_sortie=None):
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step")
+STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_next_chapter")
 
 
 def place_after_magnifiers():
