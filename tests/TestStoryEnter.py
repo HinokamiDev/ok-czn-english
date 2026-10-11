@@ -165,6 +165,24 @@ class TestMagnifier(unittest.TestCase):
         self.assertIsNone(find_magnifier(np.zeros((1080, 1920, 3), dtype=np.uint8)))
 
 
+class TestWalkDialogue(unittest.TestCase):
+    # Read off the live snapshot 20261011-192925.
+    LIVE = [FakeBox("356/356", 0.211, 0.038), FakeBox("□", 0.107, 0.089),
+            FakeBox("Isn't this just a pillar?", 0.182, 0.203, width=300)]
+
+    def test_the_line_is_clicked_on(self):
+        from src.en.story_enter import handle_story_walk_dialogue
+        task = FakeTask(list(self.LIVE))
+        self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
+        self.assertEqual(task.clicked, ["Isn't this just a pillar?"])
+        self.assertFalse(handle_story_walk_dialogue(task, NO_FIGHT))
+
+    def test_text_there_off_a_walk_is_left_alone(self):
+        from src.en.story_enter import handle_story_walk_dialogue
+        task = FakeTask([FakeBox("Isn't this just a pillar?", 0.182, 0.203, width=300)])
+        self.assertFalse(handle_story_walk_dialogue(task, NO_FIGHT))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
@@ -183,8 +201,8 @@ class TestOrder(unittest.TestCase):
         finally:
             del sys.modules["utils_story"]
         names = [handler.__name__ for handler in module.PAGE_HANDLERS]
-        self.assertEqual(names, ["handle_skip_story", "handle_view_event", "handle_story_event_option",
-                                 "handle_confirm"])
+        self.assertEqual(names, ["handle_skip_story", "handle_view_event", "handle_story_walk_dialogue",
+                                 "handle_story_event_option", "handle_confirm"])
 
 
 if __name__ == "__main__":

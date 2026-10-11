@@ -58,6 +58,11 @@ MAGNIFIER_THRESHOLD = 0.8
 MAGNIFIER_REGION = (0.084, 0.125, 0.995, 0.875)
 MAGNIFIER_PRESSED = "_en_story_magnifier_pressed"
 MAGNIFIER_TAG = "scaled magnifier"
+# A story walk speaks in a box under the health bar, a portrait on its left and a ▽ in its corner, and waits for a
+# click to go on - read live: "Isn't this just a pillar?" at (0.182, 0.203). Upstream's Story mode knows no such box.
+WALK_DIALOGUE_REGION = (0.08, 0.11, 0.45, 0.32)
+WALK_DIALOGUE_PRESSED = "_en_story_walk_dialogue_pressed"
+WALK_DIALOGUE_COOLDOWN = 2
 _magnifier = None
 
 _patched = False
@@ -244,6 +249,33 @@ def looking_closer(handle_view_event):
     return wrapped
 
 
+def handle_story_walk_dialogue(task, utils_sortie=None):
+    """Click a story walk's speech box on, line by line.
+
+    Args:
+        task: The running task, whose `all_texts` is the current screen.
+        utils_sortie: The Sortie module, for its hand counter, looked up when not given.
+
+    Returns:
+        True when the box was clicked.
+    """
+    from src.en.screen import in_region
+
+    lines = [box for box in task.all_texts or []
+             if in_region(box, WALK_DIALOGUE_REGION, task.width, task.height) and len((box.name or "").strip()) > 3]
+    if not lines or not on_story_walk(task, utils_sortie or loaded("utils_sortie")):
+        return False
+    line = lines[0]
+    last = getattr(task, WALK_DIALOGUE_PRESSED, None)
+    if last and last[0] == line.name and time.monotonic() - last[1] < WALK_DIALOGUE_COOLDOWN:
+        return False
+    task.log_info(f"story walk line '{line.name}', clicking on")
+    task.click_box(line)
+    setattr(task, WALK_DIALOGUE_PRESSED, (line.name, time.monotonic()))
+    task.sleep(0.5)
+    return True
+
+
 def place_after_magnifiers():
     """Put the walk-option handler straight after the magnifier handler, in the Story list only."""
     for module_name, handlers in each_list():
@@ -253,9 +285,14 @@ def place_after_magnifiers():
         if handle_story_event_option.__name__ in names:
             handlers.pop(names.index(handle_story_event_option.__name__))
             names = [getattr(handler, "__name__", None) for handler in handlers]
+        if handle_story_walk_dialogue.__name__ in names:
+            handlers.pop(names.index(handle_story_walk_dialogue.__name__))
+            names = [getattr(handler, "__name__", None) for handler in handlers]
         index = names.index(OPTION_AFTER) + 1 if OPTION_AFTER in names else len(handlers)
+        # Magnifiers, then whatever the walk says, then the option that moves it on.
         handlers.insert(index, handle_story_event_option)
-        logger.info(f"utils_story: {handle_story_event_option.__name__} placed at {index}, after {OPTION_AFTER}")
+        handlers.insert(index, handle_story_walk_dialogue)
+        logger.info(f"utils_story: walk dialogue and option handlers placed at {index}, after {OPTION_AFTER}")
 
 
 def install():
