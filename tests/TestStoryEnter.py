@@ -177,10 +177,16 @@ class TestWalkDialogue(unittest.TestCase):
         self.assertEqual(task.clicked, ["Isn't this just a pillar?"])
         self.assertFalse(handle_story_walk_dialogue(task, NO_FIGHT))
 
-    def test_text_there_off_a_walk_is_left_alone(self):
+    def test_a_cut_in_without_the_health_bar_is_clicked_too(self):
         from src.en.story_enter import handle_story_walk_dialogue
-        task = FakeTask([FakeBox("Isn't this just a pillar?", 0.182, 0.203, width=300)])
-        self.assertFalse(handle_story_walk_dialogue(task, NO_FIGHT))
+        # Snapshot 20261011-193511: the only text on screen.
+        task = FakeTask([FakeBox("We need to target its arms first.", 0.219, 0.204, width=380)])
+        self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
+
+    def test_never_during_a_fight(self):
+        from src.en.story_enter import handle_story_walk_dialogue
+        task = FakeTask([FakeBox("We need to target its arms first.", 0.219, 0.204, width=380)])
+        self.assertFalse(handle_story_walk_dialogue(task, IN_FIGHT))
 
 
 class TestOrder(unittest.TestCase):

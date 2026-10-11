@@ -263,7 +263,12 @@ def handle_story_walk_dialogue(task, utils_sortie=None):
 
     lines = [box for box in task.all_texts or []
              if in_region(box, WALK_DIALOGUE_REGION, task.width, task.height) and len((box.name or "").strip()) > 3]
-    if not lines or not on_story_walk(task, utils_sortie or loaded("utils_sortie")):
+    if not lines or len(lines) > 2:
+        return False
+    # The health bar is not always up - a walk's cut-in scene speaks in the same box without it, and stalled
+    # there ("We need to target its arms first.") - so only a fight's hand counter rules the box out.
+    utils_sortie = utils_sortie or loaded("utils_sortie")
+    if utils_sortie is not None and utils_sortie._read_hand_count(task) is not None:
         return False
     line = lines[0]
     last = getattr(task, WALK_DIALOGUE_PRESSED, None)
