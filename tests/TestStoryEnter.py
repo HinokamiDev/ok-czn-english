@@ -311,6 +311,16 @@ class TestMapDrag(unittest.TestCase):
         self.assertTrue(handle_map_drag(task))
         self.assertEqual(swipes, [MAP_DRAG])
 
+    def test_a_name_cut_off_at_the_edge_is_dragged_into_view_too(self):
+        from src.en.story_enter import handle_map_drag
+        # Snapshot 20261011-212746.
+        task = MapTask([FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04),
+                        FakeBox("Toward the Abyss", 0.571, 0.493), FakeBox("The B", 0.967, 0.436, width=50)])
+        swipes = []
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0: swipes.append(1)
+        self.assertTrue(handle_map_drag(task))
+        self.assertEqual(swipes, [1])
+
     def test_a_visible_play_button_is_entered_instead(self):
         from src.en.story_enter import handle_map_drag
         task = MapTask(list(self.LIVE), entrances=True)
