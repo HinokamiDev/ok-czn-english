@@ -62,8 +62,11 @@ CARD_TYPE_WORDS = ("attac", "upgrad", "skill", "攻击", "强化", "技能")
 # live one and was never clicked; scaled to 0.9 it scored 0.92. Upstream's own match is tried first.
 MAGNIFIER_SOURCE = ("ok_tasks/assets/images/1.png", (1051, 477, 59, 63))
 MAGNIFIER_SCALES = (0.85, 0.9, 0.95)
-MAGNIFIER_THRESHOLD = 0.8
-MAGNIFIER_REGION = (0.084, 0.125, 0.995, 0.875)
+# Act 4 Chapter 3 put two magnifiers low on the stage, at (0.09, 0.83) and (0.755, 0.885): outside the old region and,
+# in the 1280-wide capture, scoring 0.85 and 0.77 (snapshot 20261011-232243). Across the other captures nothing that is
+# not a magnifier scored above 0.56.
+MAGNIFIER_THRESHOLD = 0.72
+MAGNIFIER_REGION = (0.0, 0.125, 1.0, 0.95)
 MAGNIFIER_PRESSED = "_en_story_magnifier_pressed"
 MAGNIFIER_TAG = "scaled magnifier"
 # A story walk speaks in a box under the health bar, a portrait on its left and a ▽ in its corner, and waits for a

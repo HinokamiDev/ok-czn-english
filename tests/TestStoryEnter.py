@@ -489,6 +489,27 @@ class TestChaosWalkMagnifier(unittest.TestCase):
         self.assertAlmostEqual(pressed[0][1], 0.561, places=2)
 
 
+class TestLowMagnifiers(unittest.TestCase):
+    def test_magnifiers_low_on_the_stage_are_found(self):
+        import cv2
+        from src.en.story_enter import find_magnifier
+        frame = cv2.imread(str(Path(__file__).parent / "images" / "story_walk_magnifier_low.png"))
+        first = find_magnifier(frame)
+        self.assertAlmostEqual(first[0], 0.091, places=2)
+        self.assertAlmostEqual(first[1], 0.832, places=2)
+        frame[:, :300] = 0
+        second = find_magnifier(frame)
+        self.assertAlmostEqual(second[0], 0.755, places=1)
+        self.assertGreater(second[1], 0.85)
+
+    def test_screens_without_one_find_none(self):
+        import cv2
+        from src.en.story_enter import find_magnifier
+        for name in ("hand_select_exhaust.png", "main.png", "effect_panel.png"):
+            frame = cv2.imread(str(Path(__file__).parent / "images" / name))
+            self.assertIsNone(find_magnifier(frame), name)
+
+
 class TestEffectPanel(unittest.TestCase):
     LIVE = [FakeBox("Effect", 0.145, 0.05), FakeBox("Healthy", 0.686, 0.05), FakeBox("Health 1870(94.5%)", 0.82, 0.049),
             FakeBox("Chronal Ascension", 0.23, 0.236, width=250)]
