@@ -129,5 +129,31 @@ class TestHandOver(unittest.TestCase):
         self.assertEqual(self.controller.started, [])
 
 
+class TestGameRestart(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        path.start()
+        self.addCleanup(path.stop)
+
+    def test_a_request_closes_only_the_game_and_starts_it_through_stove(self):
+        calls, started = [], []
+        alive = iter([True, False])
+        with patch.object(autostart.subprocess, "run", lambda args, **kwargs: calls.append(args)),                 patch.object(autostart, "game_running", lambda: next(alive, False)),                 patch.object(autostart.os, "startfile", started.append, create=True),                 patch.object(autostart.time, "sleep", lambda seconds: None):
+            autostart.restart_game()
+        self.assertEqual(calls, [["taskkill", "/IM", "ssr-stove-shield.exe"]])
+        self.assertEqual(started, [autostart.GAME_URL])
+
+    def test_the_request_is_taken_once(self):
+        threads = []
+        (status.PATH.parent / autostart.GAME_RESTART_NAME).write_text("", encoding="utf-8")
+        with patch.object(autostart.threading, "Thread",
+                          lambda **kwargs: types.SimpleNamespace(start=lambda: threads.append(kwargs["name"]))):
+            self.assertTrue(autostart.take_game_restart())
+            self.assertFalse(autostart.take_game_restart())
+        self.assertEqual(threads, ["game-restart"])
+
+
 if __name__ == "__main__":
     unittest.main()

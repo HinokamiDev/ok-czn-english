@@ -7,6 +7,10 @@ button does, and removes the file, so it happens once per request and never on a
 """
 
 import json
+import os
+import subprocess
+import threading
+import time
 
 from ok import Logger
 
@@ -21,6 +25,13 @@ FILE_NAME = "otomatik-baslat.json"
 SWITCH_NAME = "mod-degistir.json"
 RETURN_NAME = "story-donus.json"
 POLL_MS = 2000
+# Restarting the game itself, for when it freezes. The app runs elevated, as the game and STOVE do, so it can close
+# the game and have STOVE start it again without a UAC prompt nobody may be there to answer. Only the game's own
+# process is touched, and it is started again the way the desktop shortcut does it.
+GAME_RESTART_NAME = "oyun-yeniden.istek"
+GAME_PROCESS = "ssr-stove-shield.exe"
+GAME_URL = "sgup://run/STOVE_CHAOSZERO?auto_action=PrepareAndLaunch"
+GAME_CLOSE_SECONDS = 15
 _timer = None
 # Long enough for the game window to be found and connected, as it is when someone presses Start by hand.
 DELAY_MS = 10000
@@ -109,6 +120,38 @@ def start_requested(executor, start_controller):
     return task
 
 
+def game_running():
+    found = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {GAME_PROCESS}", "/NH"], capture_output=True, text=True,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return GAME_PROCESS.lower() in (found.stdout or "").lower()
+
+
+def restart_game():
+    """Close the game, politely first, and start it again through STOVE."""
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    subprocess.run(["taskkill", "/IM", GAME_PROCESS], capture_output=True, creationflags=flags)
+    for _ in range(GAME_CLOSE_SECONDS):
+        if not game_running():
+            break
+        time.sleep(1)
+    forced = game_running()
+    if forced:
+        subprocess.run(["taskkill", "/IM", GAME_PROCESS, "/T", "/F"], capture_output=True, creationflags=flags)
+        time.sleep(3)
+    logger.info(f"game closed{' by force' if forced else ''}, starting it again through STOVE")
+    os.startfile(GAME_URL)
+
+
+def take_game_restart():
+    """Start a game restart in the background when one was asked for, so the window's timer is not held up."""
+    path = status.PATH.parent / GAME_RESTART_NAME
+    if not path.exists():
+        return False
+    path.unlink(missing_ok=True)
+    threading.Thread(target=restart_game, name="game-restart", daemon=True).start()
+    return True
+
+
 def running(executor):
     return [task for task in executor.get_all_tasks()
             if task.__class__.__name__ in MODES and getattr(task, "enabled", False)]
@@ -182,6 +225,7 @@ def schedule():
 
     def polling():
         try:
+            take_game_restart()
             poll(og.executor, og.app.start_controller)
         except Exception as error:
             logger.error(f"could not carry out a mode hand-over: {error}", exception=error)
