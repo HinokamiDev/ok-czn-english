@@ -137,6 +137,28 @@ def choose(hand, board, refused):
     return min(clearing, key=lambda card: cards.clearing_order(card["name"]), default=None)
 
 
+def stretch_card(hand, board, refused, stretched):
+    """Find a card whose listed cost is over the turn's budget, worth one try before the turn ends.
+
+    The cost table holds a card's printed cost, and some cards get cheaper during a fight: Mealtime is listed at 6
+    and drops by 1 each time Voracity falls, so planned against the turn's three points it was never played at all,
+    turn after turn. The game says whether it can be paid for now, so it is asked once a turn.
+
+    Args:
+        hand: Hand cards as `_hand_cards` reads them.
+        board: The `cards.Board` the turn is planned against.
+        refused: Names the game has already declined this turn.
+        stretched: Names already tried this way this turn.
+
+    Returns:
+        The most valuable such card, or None.
+    """
+    over = [card for card in hand
+            if card.get("key") and card["name"] not in refused and card["name"] not in stretched
+            and cards.cost(card["name"]) > board.action_points and cards.worth_playing(card["name"])]
+    return max(over, key=lambda card: cards.value(card["name"], board), default=None)
+
+
 def was_refused(attempted, copies, hand_names):
     """Say whether the card tried last frame is still sitting in hand.
 
@@ -186,6 +208,8 @@ class Turn:
         self.attempted = None
         self.attempted_copies = 0
         self.refused = set()
+        # Cards tried once a turn although their listed cost is over the budget, given up on at the first refusal.
+        self.stretched = set()
         # How many frames each card has stayed in hand after its key was pressed, since one can be a frame too soon.
         self.misses = collections.Counter()
         # Keys pressed for a card the counter says is there but OCR never read, each tried once a turn.
@@ -430,7 +454,8 @@ def install():
         if was_refused(turn.attempted, turn.attempted_copies, names):
             turn.misses[turn.attempted] += 1
             # Live, Magnetic Field stayed in hand once with all three points to spend, and was given up on for the turn.
-            if turn.misses[turn.attempted] >= REFUSALS:
+            # A card tried over its listed cost is given up on at once: the game declining it is the expected answer.
+            if turn.misses[turn.attempted] >= REFUSALS or turn.attempted in turn.stretched:
                 turn.refused.add(turn.attempted)
                 task.log_info(f"the game would not play {turn.attempted}, leaving it for the rest of this turn")
 
@@ -457,6 +482,16 @@ def install():
                 task.log_info(f"read {len(names)} of {count} cards and none worth playing, trying unread key {blind}")
                 turn.blind.add(blind)
                 play_key(task, blind)
+                return
+            stretch = stretch_card(hand, state, turn.refused, turn.stretched) if points else None
+            if stretch:
+                name = stretch["name"]
+                task.log_info(f"trying {name} on key {stretch['key']} although it is listed at {cards.cost(name)} AP,"
+                              f" since its cost can fall during a fight")
+                turn.stretched.add(name)
+                turn.attempted = name
+                turn.attempted_copies = names.count(name)
+                play_key(task, stretch["key"])
                 return
             spent = "" if points else ", no Action Points left"
             task.log_info(f"nothing left worth playing in {names}{spent}, ending the turn")
