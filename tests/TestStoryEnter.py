@@ -833,6 +833,20 @@ class TestMapDragBack(unittest.TestCase):
         self.assertGreater(hold, 0)
 
 
+class TestRewardIsNoWalk(unittest.TestCase):
+    # Snapshot 20261012-005353: a chaos stage's reward screen in front of the Story mode.
+    LIVE = [FakeBox("1137/1434", 0.211, 0.039), FakeBox("Latent Epiphany.", 0.834, 0.224), FakeBox("跳过", 0.74, 0.917),
+            FakeBox("获得", 0.911, 0.918)]
+    NO_HAND = types.SimpleNamespace(_read_hand_count=lambda task: None)
+
+    def test_skip_and_obtain_are_never_pressed_as_walk_options(self):
+        from src.en.story_enter import handle_story_event_option, handle_walk_choice
+        for handler in (handle_story_event_option, handle_walk_choice):
+            task = FakeTask(list(self.LIVE))
+            self.assertFalse(handler(task, self.NO_HAND), handler.__name__)
+            self.assertEqual(task.clicked, [])
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

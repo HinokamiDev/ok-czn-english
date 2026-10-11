@@ -58,6 +58,9 @@ HEALTH_REGION = (0.05, 0.0, 0.45, 0.09)
 MAX_OPTION_LINES = 4
 # The type line printed under a card's name, in English and as the catalog rewrites it. A band carrying one is a hand.
 CARD_TYPE_WORDS = ("attac", "upgrad", "skill", "攻击", "强化", "技能")
+# A reward screen's buttons sit in the option band too ("跳过" Skip, "获得" Obtain): the walk-option press pressed Skip
+# on a chaos stage's Latent Epiphany reward, every six seconds (snapshot 20261012-005353). Never a walk option.
+REWARD_WORDS = ("跳过", "获得", "skip", "obtain", "claim")
 # A story walk's magnifier is drawn at about 90% of upstream's `check` template, so the template scored 0.48 on a
 # live one and was never clicked; scaled to 0.9 it scored 0.92. Upstream's own match is tried first.
 MAGNIFIER_SOURCE = ("ok_tasks/assets/images/1.png", (1051, 477, 59, 63))
@@ -187,7 +190,7 @@ def handle_story_event_option(task, utils_sortie=None):
     band = [box for box in task.all_texts or [] if in_region(box, OPTION_BAND, task.width, task.height)]
     if not band or len(band) > MAX_OPTION_LINES:
         return False
-    if any(word in (box.name or "").casefold() for box in band for word in CARD_TYPE_WORDS):
+    if any(word in (box.name or "").casefold() for box in band for word in CARD_TYPE_WORDS + REWARD_WORDS):
         return False
     encounter = next((box for box in band if ENCOUNTER in (box.name or "").casefold()), None)
     if encounter is None and not on_story_walk(task, utils_sortie):
@@ -328,7 +331,8 @@ def handle_walk_choice(task, utils_sortie=None):
     columns = walk_choice_columns(task)
     if len(columns) < 2 or not on_story_walk(task, utils_sortie):
         return False
-    if any(word in (box.name or "").casefold() for _, boxes in columns for box in boxes for word in CARD_TYPE_WORDS):
+    if any(word in (box.name or "").casefold() for _, boxes in columns for box in boxes
+           for word in CARD_TYPE_WORDS + REWARD_WORDS):
         return False
     hints = [box for box in task.all_texts or [] if in_region(box, HINT_REGION, task.width, task.height)
              and 2 < len((box.name or "").strip(" .…")) <= HINT_LONGEST]

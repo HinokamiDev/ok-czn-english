@@ -121,6 +121,14 @@ class TestHandOver(unittest.TestCase):
         self.assertIsNone(autostart.poll(self.executor, self.controller))
         self.assertEqual(self.controller.started, [])
 
+    def test_a_pending_start_request_goes_before_the_return(self):
+        # Live, 12 Oct: restarted into Chaos mid-run, the app went back to Story first.
+        self.story.enabled = False
+        autostart.write_return("ChaosMode", seen=True)
+        autostart.request_path().write_text('{"mod": "ChaosMode"}', encoding="utf-8")
+        self.assertIsNone(autostart.poll(self.executor, self.controller))
+        self.assertEqual(self.controller.started, [])
+
     def test_no_return_before_the_awaited_run_has_begun(self):
         # Live: the app opened with nothing running and went straight back to Story, before Chaos started.
         self.story.enabled = False

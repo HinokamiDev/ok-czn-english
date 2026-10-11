@@ -190,6 +190,11 @@ def poll(executor, start_controller):
     """
     folder = status.PATH.parent
     wanted = take_request(folder / SWITCH_NAME)
+    # A supervisor restart's own start request goes first: restarted into the Chaos mode mid-run, the app found nothing
+    # running and the return marker already "seen", went back to Story at once, and Story faced the Chaos run's reward
+    # screen (12 Oct, 00:51).
+    if wanted is None and request_path().exists():
+        return None
     if wanted is None:
         wanted = due_return(executor, folder / RETURN_NAME)
         if wanted is None:
