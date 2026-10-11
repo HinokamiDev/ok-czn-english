@@ -519,6 +519,53 @@ def walk_dialogue_step(task, utils_sortie=None):
     return True
 
 
+def handle_speech_box_anywhere(task, utils_sortie=None):
+    """Click on a speech box in the Chaos and Sortie modes, where story stages run their own scenes too.
+
+    Only the box's frame decides here - those modes fill the top-left with their own text - so a box OCR read nothing
+    off is caught as well. Live: "I agree." held a story chaos stage for over half a minute.
+
+    Returns:
+        True when the box was clicked.
+    """
+    if not speech_box_on_screen(getattr(task, "frame", None)):
+        return False
+    last = getattr(task, WALK_DIALOGUE_PRESSED, None)
+    if last and time.monotonic() - last[1] < WALK_DIALOGUE_COOLDOWN:
+        return False
+    task.log_info("speech box on screen, clicking on")
+    task.click_relative(*BOX_CENTRE)
+    setattr(task, WALK_DIALOGUE_PRESSED, ("box", time.monotonic()))
+    task.sleep(0.5)
+    return True
+
+
+def handle_fork_steps(task, utils_sortie=None):
+    """Run the steps this fork adds to the Chaos and Sortie modes, first that answers wins; reloadable like Story's."""
+    for step in GENERAL_STEPS:
+        try:
+            if globals()[step](task, utils_sortie):
+                return True
+        except Exception as error:
+            logger.error(f"step {step} failed: {error!r}", exception=error)
+    return False
+
+
+GENERAL_STEPS = ("handle_speech_box_anywhere",)
+GENERAL_MODES = ("utils_chaos", "utils_sortie")
+
+
+def place_general_steps():
+    """Put the general step runner near the top of the Chaos and Sortie lists, once."""
+    for module_name, handlers in each_list():
+        if module_name not in GENERAL_MODES:
+            continue
+        if any(getattr(handler, "__name__", None) == handle_fork_steps.__name__ for handler in handlers):
+            continue
+        handlers.insert(1, proxy(__name__, handle_fork_steps.__name__))
+        logger.info(f"{module_name}: fork steps placed at 1")
+
+
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
 STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
                "handle_map_drag")
@@ -554,6 +601,7 @@ def install():
     wrap(utils_story, "handle_auto_chat", pressing_auto_chat_once, AUTO_CHAT_TAG)
     wrap(utils_story, "handle_view_event", looking_closer, MAGNIFIER_TAG)
     place_after_magnifiers()
+    place_general_steps()
 
 
 def apply():

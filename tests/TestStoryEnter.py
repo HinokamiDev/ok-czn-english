@@ -276,6 +276,18 @@ class TestSpeechBoxFrame(unittest.TestCase):
         self.assertFalse(speech_box_on_screen(self.frame("speech_box_none.png")))
         self.assertFalse(speech_box_on_screen(self.frame("speech_box_none_bright.png")))
 
+    def test_chaos_and_sortie_click_a_box_seen_by_its_frame(self):
+        from src.en.story_enter import BOX_CENTRE, handle_fork_steps
+        task = FakeTask([])
+        task.frame = self.frame("speech_box_dots.png")
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertTrue(handle_fork_steps(task))
+        self.assertEqual(pressed, [BOX_CENTRE])
+        empty = FakeTask([])
+        empty.frame = self.frame("speech_box_none.png")
+        self.assertFalse(handle_fork_steps(empty))
+
     def test_an_unread_box_is_clicked_on(self):
         from src.en.story_enter import BOX_CENTRE, handle_story_walk_dialogue
         task = FakeTask([])
