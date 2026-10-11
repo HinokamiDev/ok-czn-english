@@ -50,10 +50,21 @@ def hand_of(task, utils_sortie):
     count = utils_sortie._read_hand_count(task)
     if count is None:
         return None
-    return count, tuple(sorted(utils_sortie._hand_card_names(task) or []))
+    # Upstream hands back the OCR boxes themselves, not their text.
+    names = (getattr(box, "name", box) for box in utils_sortie._hand_card_names(task) or [])
+    return count, tuple(sorted(str(name) for name in names))
 
 
 def handle_story_fight_without_auto(task, utils_sortie=None, now=None):
+    """Run `taking_over`, so that a fault in it costs this frame and not the whole Story run."""
+    try:
+        return taking_over(task, utils_sortie, now)
+    except Exception as error:
+        logger.error(f"could not judge whether to play this Story fight: {error}", exception=error)
+        return False
+
+
+def taking_over(task, utils_sortie=None, now=None):
     """Take a Story fight over once nobody is playing it.
 
     Args:

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.en import story_fights  # noqa: E402
+from tests.fakes import FakeBox  # noqa: E402
 from src.en.story_fights import FIGHT_OVER_SECONDS, IDLE_SECONDS, STATE, handle_story_fight_without_auto  # noqa: E402
 
 
@@ -31,8 +32,10 @@ class Fight:
 
     def __init__(self):
         self.count, self.names = 5, ["Strike", "Homing Laser"]
+        # Upstream returns OCR boxes, as the live crash showed, so the fake does too.
         self.module = types.SimpleNamespace(_read_hand_count=lambda task: self.count,
-                                            _hand_card_names=lambda task: list(self.names or []))
+                                            _hand_card_names=lambda task: [FakeBox(name, 0.3, 0.85)
+                                                                           for name in self.names or []])
 
 
 class TestStoryFights(unittest.TestCase):
@@ -77,6 +80,12 @@ class TestStoryFights(unittest.TestCase):
         self.assertFalse(self.step(IDLE_SECONDS + 3))
         self.assertFalse(self.step(IDLE_SECONDS + 4 + FIGHT_OVER_SECONDS))
         self.assertIsNone(getattr(self.task, STATE))
+
+
+class TestNeverStopsTheRun(unittest.TestCase):
+    def test_a_fault_costs_the_frame_not_the_run(self):
+        broken = types.SimpleNamespace(_read_hand_count=lambda task: 1 / 0)
+        self.assertFalse(handle_story_fight_without_auto(FakeTask(), broken, now=0))
 
 
 if __name__ == "__main__":
