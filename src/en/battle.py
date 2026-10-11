@@ -12,7 +12,7 @@ import collections
 from ok import Logger
 
 from src.en import board, cards
-from src.en.handlers import StandIn, loaded, register, replace, standing_in
+from src.en.handlers import StandIn, insert_before, loaded, register, replace, standing_in
 from src.en.overrides import SMART_CARD_PLAY
 from src.en.screen import text_in_region
 
@@ -42,6 +42,19 @@ START_ATTACK_REGION = (0.394, 0.779, 0.600, 0.858)
 NO_POINTS = "Not enough AP"
 # Where that toast sits, across the middle of the screen. Measured at (0.502, 0.501).
 NO_POINTS_REGION = (0.30, 0.42, 0.70, 0.58)
+# The game's own check when a turn is ended with a card it would still play, so it is the one reading that knows the
+# Action Points: it followed 2 of 18 empty-read turn ends in the logs, exactly the 2 that had cards left to play.
+CARDS_LEFT = "can still be used"
+CARDS_LEFT_REGION = (0.15, 0.20, 0.85, 0.60)
+# The check's Cancel button, which the catalog reads back as Chinese.
+CANCEL = "取消"
+CANCEL_REGION = (0.15, 0.45, 0.55, 0.80)
+# Parked on the task while the hand reads empty under a counter that says it is not: how many times the end of the turn
+# has been called back since, or None once the hand reads again.
+UNREAD_HAND = "_en_unread_hand"
+# Callbacks before the game's check is taken as final, so a hand that never reads cannot stall the turn for good. Each
+# one takes about 3s, and a hand has stayed lowered for up to 12s after a play.
+CALLBACKS = 4
 # Where the hand lays out its cards, by hand size: the left edge of the first and of the last card's name. Medians
 # over ~2,600 fully read hands in the September logs, one sighting at 8. Wider hands are taken to span as 7 does.
 HAND_SPAN = {2: (0.393, 0.541), 3: (0.328, 0.605), 4: (0.259, 0.675), 5: (0.240, 0.696),
@@ -265,6 +278,48 @@ def out_of_points(task):
     return text_in_region(task, NO_POINTS, NO_POINTS_REGION) is not None
 
 
+def note_hand_read(task, utils_sortie):
+    """Remember whether this frame's hand read came up empty while the counter still showed cards.
+
+    A card the turn cannot afford is drawn lowered, below the band upstream reads names in. So is every card for a
+    moment after a play or a deal, and upstream ends the turn on an empty read either way.
+
+    Args:
+        task: The running task, which the note is parked on.
+        utils_sortie: Upstream's Sortie module, for its hand counter and name reader.
+    """
+    count = utils_sortie._read_hand_count(task)
+    if not count:
+        return
+    if utils_sortie._hand_card_names(task):
+        setattr(task, UNREAD_HAND, None)
+    elif getattr(task, UNREAD_HAND, None) is None:
+        setattr(task, UNREAD_HAND, 0)
+
+
+def handle_cards_left(task):
+    """Cancel the end of a turn upstream called on an unread hand, once the game says a card can still be played.
+
+    Args:
+        task: The running task, whose `all_texts` is the current screen.
+
+    Returns:
+        True when the end was called back. False leaves the check to upstream's centre Confirm, which is how an end
+        the picker chose on purpose still goes through.
+    """
+    callbacks = getattr(task, UNREAD_HAND, None)
+    if callbacks is None or callbacks >= CALLBACKS or not text_in_region(task, CARDS_LEFT, CARDS_LEFT_REGION):
+        return False
+    cancel = text_in_region(task, CANCEL, CANCEL_REGION)
+    if not cancel:
+        return False
+    task.log_info("the game says cards can still be played, so the hand was not raised yet - cancelling the end of turn")
+    setattr(task, UNREAD_HAND, callbacks + 1)
+    task.click_box(cancel)
+    task.sleep(AFTER_KEY)
+    return True
+
+
 def turn_of(task, hand_count):
     """Bring the per-turn bookkeeping up to date and hand it back.
 
@@ -429,6 +484,7 @@ def install():
         """
         if start_attack(task, utils_sortie):
             return True
+        note_hand_read(task, utils_sortie)
         was = utils_sortie.random
         utils_sortie.random = EgoChoice(task, was)
         try:
@@ -437,6 +493,7 @@ def install():
             utils_sortie.random = was
 
     replace("handle_battle_page", handle_battle_page)
+    insert_before("handle_center_confirm", handle_cards_left)
 
     # Marked so a later task load recognises the replacement and does not wrap it in itself.
     _try_all_card_keys._en_picker = True

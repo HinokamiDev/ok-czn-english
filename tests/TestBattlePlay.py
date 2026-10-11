@@ -243,8 +243,9 @@ def upstream(hand_cards, smart=True, action_points=True, egos=(), weakness=None)
                                    "wait": utils_sortie.random.uniform(0.2, 0.8)})
 
     utils_sortie.handle_battle_page = handle_battle_page
-    # The seam edits this list rather than the module attribute, so the fake has to carry one too.
-    utils_sortie.PAGE_HANDLERS = [handle_battle_page]
+    # The seam edits this list rather than the module attribute, so the fake has to carry one too, with the anchor
+    # the fork inserts its own handler in front of.
+    utils_sortie.PAGE_HANDLERS = [handle_battle_page, types.SimpleNamespace(__name__="handle_center_confirm")]
     saved = {name: sys.modules.get(name) for name in ("utils", "utils_sortie")}
     sys.modules["utils"], sys.modules["utils_sortie"] = utils, utils_sortie
     try:
@@ -460,6 +461,47 @@ class TestInstalling(unittest.TestCase):
             battle.install()
             utils_sortie._try_all_card_keys(task, 2)
             self.assertEqual(task.keys, [battle.END_TURN_KEY])
+
+
+class TestCallingBackTheTurn(unittest.TestCase):
+    """A hand the game has not raised yet reads as empty, and upstream ends the turn on an empty read."""
+
+    def run_frames(self, *, names, popups):
+        """Run one battle frame, then the popup handler on each popup frame after it.
+
+        Args:
+            names: The card names the hand read returns on the battle frame.
+            popups: How many frames the game's "cards can still be used" check stays up for.
+
+        Returns:
+            The task, and what the popup handler returned on each popup frame.
+        """
+        with upstream([]) as (utils_sortie, task):
+            task.counter = 7
+            utils_sortie._hand_card_names = lambda _: list(names)
+            battle.install()
+            handlers = {getattr(handler, "__name__", None): handler for handler in utils_sortie.PAGE_HANDLERS}
+            handlers["handle_battle_page"](task)
+            answers = []
+            for _ in range(popups):
+                task.all_texts = [FakeBox("Cards in your hand can still be used.", 0.5, 0.36, width=600),
+                                  FakeBox("取消", 0.34, 0.60), FakeBox("确认", 0.67, 0.60)]
+                answers.append(handlers["handle_cards_left"](task))
+        return task, answers
+
+    def test_ending_on_an_unread_hand_is_called_back(self):
+        task, answers = self.run_frames(names=[], popups=1)
+        self.assertEqual(answers, [True])
+        self.assertEqual([box.name for box in task.clicked], ["取消"])
+
+    def test_an_end_the_picker_chose_is_left_to_confirm(self):
+        task, answers = self.run_frames(names=[ATTACK], popups=1)
+        self.assertEqual(answers, [False])
+        self.assertEqual(task.clicked, [])
+
+    def test_a_hand_that_never_reads_is_not_called_back_forever(self):
+        task, answers = self.run_frames(names=[], popups=battle.CALLBACKS + 1)
+        self.assertEqual(answers, [True] * battle.CALLBACKS + [False])
 
 
 class TestEgoChoice(unittest.TestCase):
