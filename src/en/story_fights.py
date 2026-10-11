@@ -18,8 +18,18 @@ logger = Logger.get_logger(__name__)
 
 # How long the player's turn has to sit with an unchanged hand before the fight is taken over.
 IDLE_SECONDS = 12
-# How long the hand counter can be gone before the fight counts as over.
-FIGHT_OVER_SECONDS = 10
+# How long the hand counter can be gone before the fight counts as over. A box over the fight hides the counter, and
+# 10s handed a fight back while the game was still asking about ending the turn.
+FIGHT_OVER_SECONDS = 30
+# The game's question when a turn is ended with playable cards, and its two buttons. Read live (20261011-200656):
+# question at (0.5, 0.358), Cancel at (0.347, 0.604), Confirm at (0.667, 0.604). The Story list has no handler for it.
+CARDS_LEFT = "can still be used"
+CARDS_LEFT_REGION = (0.15, 0.25, 0.85, 0.50)
+CANCEL, CONFIRM = "取消", "确认"
+BUTTON_REGION = (0.15, 0.52, 0.85, 0.70)
+# Set by the walk-dialogue handler when it clicks a speech box on.
+DIALOGUE_PRESSED = "_en_story_walk_dialogue_pressed"
+CARDS_LEFT_CANCELLED = "_en_story_cards_left_cancelled"
 ANCHOR = "handle_battle_auto_check"
 SORTIE_PLAYER = "handle_battle_page"
 SORTIE_OFFER = "handle_battle_card_choice"
@@ -55,9 +65,50 @@ def hand_of(task, utils_sortie):
     return utils_sortie._read_hand_count(task)
 
 
+def answer_cards_left(task, now):
+    """Answer the game's question about ending a turn with cards still playable.
+
+    Cards the game refused while a speech box was up were refused for that reason, not for being unplayable, so once
+    a box has been clicked on since, the end of turn is cancelled and the refusals forgotten - once. Otherwise the
+    end was chosen on purpose and is confirmed.
+
+    Returns:
+        True when the question was on screen and answered.
+    """
+    from src.en.battle import TURN
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, CARDS_LEFT, CARDS_LEFT_REGION) is None:
+        return False
+    turn = getattr(task, TURN, None)
+    pressed = getattr(task, DIALOGUE_PRESSED, None)
+    cancelled = getattr(task, CARDS_LEFT_CANCELLED, None)
+    refused_by_box = (turn is not None and turn.refused and pressed is not None
+                      and (cancelled is None or pressed[1] > cancelled))
+    button = text_in_region(task, CANCEL if refused_by_box else CONFIRM, BUTTON_REGION)
+    if button is None:
+        return False
+    if refused_by_box:
+        task.log_info(f"cards were refused while a speech box was up ({sorted(turn.refused)}); cancelling the end of"
+                      f" turn and trying them again")
+        turn.refused.clear()
+        turn.misses.clear()
+        setattr(task, CARDS_LEFT_CANCELLED, time.monotonic())
+    else:
+        task.log_info("the turn was ended on purpose with cards left, confirming")
+    task.click_box(button)
+    task.sleep(1)
+    state = getattr(task, STATE, None)
+    if state:
+        state["seen"] = now
+    return True
+
+
 def handle_story_fight_without_auto(task, utils_sortie=None, now=None):
     """Run `taking_over`, so that a fault in it costs this frame and not the whole Story run."""
     try:
+        if answer_cards_left(task, time.monotonic() if now is None else now):
+            return True
         return taking_over(task, utils_sortie, now)
     except Exception as error:
         logger.error(f"could not judge whether to play this Story fight: {error}", exception=error)

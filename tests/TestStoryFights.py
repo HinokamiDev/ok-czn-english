@@ -82,6 +82,56 @@ class TestStoryFights(unittest.TestCase):
         self.assertIsNone(getattr(self.task, STATE))
 
 
+class CardsLeftTask(FakeTask):
+    width, height = 1920, 1080
+
+    def __init__(self, boxes):
+        super().__init__()
+        self.all_texts = boxes
+        self.clicked = []
+
+    def click_box(self, box):
+        self.clicked.append(box.name)
+
+    def sleep(self, seconds):
+        pass
+
+
+class TestCardsLeft(unittest.TestCase):
+    # Snapshot 20261011-200656.
+    LIVE = [FakeBox("Cards in your hand can still be used.", 0.5, 0.358, width=500),
+            FakeBox("Do you wish to end your turn without using them?", 0.501, 0.395, width=600),
+            FakeBox("取消", 0.347, 0.604), FakeBox("确认", 0.667, 0.604)]
+
+    def turn_with_refusals(self, task):
+        from src.en.battle import TURN, Turn
+        turn = Turn(4)
+        turn.refused.update({"Fatal Strike", "Experienced Strike"})
+        setattr(task, TURN, turn)
+        return turn
+
+    def test_refusals_from_a_speech_box_are_cancelled_once(self):
+        task = CardsLeftTask(list(self.LIVE))
+        turn = self.turn_with_refusals(task)
+        setattr(task, story_fights.DIALOGUE_PRESSED, ("There's an opening near the head!", 10.0))
+        with patch.object(story_fights.time, "monotonic", return_value=20.0):
+            self.assertTrue(story_fights.answer_cards_left(task, 20.0))
+        self.assertEqual(task.clicked, ["取消"])
+        self.assertEqual(turn.refused, set())
+        turn.refused.add("Fatal Strike")
+        self.assertTrue(story_fights.answer_cards_left(task, 30.0))
+        self.assertEqual(task.clicked, ["取消", "确认"])
+
+    def test_an_end_chosen_on_purpose_is_confirmed(self):
+        task = CardsLeftTask(list(self.LIVE))
+        self.assertTrue(story_fights.answer_cards_left(task, 0))
+        self.assertEqual(task.clicked, ["确认"])
+
+    def test_without_the_question_nothing_happens(self):
+        task = CardsLeftTask([FakeBox("确认", 0.667, 0.604)])
+        self.assertFalse(story_fights.answer_cards_left(task, 0))
+
+
 class TestNeverStopsTheRun(unittest.TestCase):
     def test_a_fault_costs_the_frame_not_the_run(self):
         broken = types.SimpleNamespace(_read_hand_count=lambda task: 1 / 0)
