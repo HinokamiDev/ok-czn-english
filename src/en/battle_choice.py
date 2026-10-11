@@ -13,6 +13,7 @@ from ok import Logger
 from src.en import cards
 from src.en.battle import TURN
 from src.en.handlers import append, loaded, register
+from src.en.live import proxy
 
 logger = Logger.get_logger(__name__)
 
@@ -148,5 +149,5 @@ def apply():
     global _patched
     if _patched:
         return
-    register(lambda: append(handle_battle_card_choice, ANCHOR))
+    register(lambda: append(proxy(__name__, handle_battle_card_choice.__name__), ANCHOR))
     _patched = True

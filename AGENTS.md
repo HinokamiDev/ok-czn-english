@@ -74,3 +74,10 @@ OCR açıklamaları satır sırası karışık okunabilir; kelimelere bak, sıra
 Ekran 25 sn değişmezse ok-czn `%LOCALAPPDATA%\ok-czn-hd\takilma\<zaman>.png` ve aynı adla `.json`
 (OCR metinleri ve konumları) yazar, durum `takildi` olur ve mesaj görüntü yolunu içerir. Son 20 görüntü tutulur.
 Bakıcı görüntüyü ve metinleri okuyup hangi işleyicinin ekranı tanımadığını bulur; oyuna dokunmaz.
+
+## Canlı düzeltme (yeniden başlatmasız)
+
+`src/en/live.py`: her kare sonunda en çok 2 sn'de bir `story_enter`, `story_fights`, `battle_choice`, `snapshot`
+ve `cards` modüllerinin dosya zamanına bakar; değişen modülü çalışırken yeniden yükler (kayıtta "reloaded X without
+a restart"). Bu modüllerde düzeltme kaydedilince yeniden başlatma gerekmez. Yeni modül, yeni liste girişi ya da
+`ok_tasks/` değişikliği hâlâ yeniden başlatma ister. Hatalı düzenleme yüklenmez, eski kod çalışmaya devam eder.

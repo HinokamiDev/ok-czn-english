@@ -127,9 +127,11 @@ def watching(original, task, path=None):
             if type(error).__name__ not in CONTROL_FLOW:
                 event(task, "hata", f"Stopped on an error: {error!r}"[:300], path)
             raise
-        # Imported here: the snapshot module records its finding through this one.
-        from src.en.snapshot import checking
-        checking(task)
+        # Imported here: the snapshot module records its finding through this one. Both are looked up per frame,
+        # so a live reload of either takes effect on the next one.
+        from src.en import live, snapshot
+        live.checking()
+        snapshot.checking(task)
         return result
 
     return run

@@ -12,6 +12,7 @@ import time
 from ok import Logger
 
 from src.en.handlers import each_list, insert_before, loaded, register, wrap
+from src.en.live import proxy
 from src.en.screen import text_in_region
 
 logger = Logger.get_logger(__name__)
@@ -144,14 +145,19 @@ def pressing_auto_chat_once(handle_auto_chat):
         The wrapped handler.
     """
     def wrapped(task):
-        if time.monotonic() - (getattr(task, AUTO_CHAT_PRESSED, None) or float("-inf")) < AUTO_CHAT_COOLDOWN:
-            return False
-        pressed = handle_auto_chat(task)
-        if pressed:
-            setattr(task, AUTO_CHAT_PRESSED, time.monotonic())
-        return pressed
+        # The step is looked up in this module at each call, so a live reload of the module replaces it.
+        return auto_chat_step(handle_auto_chat, task)
 
     return wrapped
+
+
+def auto_chat_step(handle_auto_chat, task):
+    if time.monotonic() - (getattr(task, AUTO_CHAT_PRESSED, None) or float("-inf")) < AUTO_CHAT_COOLDOWN:
+        return False
+    pressed = handle_auto_chat(task)
+    if pressed:
+        setattr(task, AUTO_CHAT_PRESSED, time.monotonic())
+    return pressed
 
 
 def pressing_enter(handle_enter_stage, utils):
@@ -165,15 +171,19 @@ def pressing_enter(handle_enter_stage, utils):
         The wrapped handler.
     """
     def wrapped(task):
-        box = utils.find_box_at_point(task, *BUTTON_POINT)
-        if box and STAGE_CAPTION not in box.name and (utils._clean_match(box.name, ENTER) or "enter" in box.name.casefold()):
-            task.log_info("stage panel's Enter button, pressing it")
-            task.click_box(box)
-            task.sleep(1)
-            return True
-        return handle_enter_stage(task)
+        return enter_stage_step(handle_enter_stage, utils, task)
 
     return wrapped
+
+
+def enter_stage_step(handle_enter_stage, utils, task):
+    box = utils.find_box_at_point(task, *BUTTON_POINT)
+    if box and STAGE_CAPTION not in box.name and (utils._clean_match(box.name, ENTER) or "enter" in box.name.casefold()):
+        task.log_info("stage panel's Enter button, pressing it")
+        task.click_box(box)
+        task.sleep(1)
+        return True
+    return handle_enter_stage(task)
 
 
 def magnifier_template():
@@ -232,21 +242,26 @@ def looking_closer(handle_view_event):
         The wrapped handler.
     """
     def wrapped(task):
-        if handle_view_event(task):
-            return True
-        found = find_magnifier(getattr(task, "frame", None))
-        if found is None:
-            return False
-        last = getattr(task, MAGNIFIER_PRESSED, None)
-        if last and abs(last[0][0] - found[0]) < 0.02 and abs(last[0][1] - found[1]) < 0.02                 and time.monotonic() - last[1] < OPTION_COOLDOWN:
-            return False
-        task.log_info(f"story walk magnifier at ({found[0]:.3f}, {found[1]:.3f}), looking at it")
-        task.click_relative(*found)
-        setattr(task, MAGNIFIER_PRESSED, (found, time.monotonic()))
-        task.sleep(0.5)
-        return True
+        return magnifier_step(handle_view_event, task)
 
     return wrapped
+
+
+def magnifier_step(handle_view_event, task):
+    if handle_view_event(task):
+        return True
+    found = find_magnifier(getattr(task, "frame", None))
+    if found is None:
+        return False
+    last = getattr(task, MAGNIFIER_PRESSED, None)
+    if (last and abs(last[0][0] - found[0]) < 0.02 and abs(last[0][1] - found[1]) < 0.02
+            and time.monotonic() - last[1] < OPTION_COOLDOWN):
+        return False
+    task.log_info(f"story walk magnifier at ({found[0]:.3f}, {found[1]:.3f}), looking at it")
+    task.click_relative(*found)
+    setattr(task, MAGNIFIER_PRESSED, (found, time.monotonic()))
+    task.sleep(0.5)
+    return True
 
 
 def handle_story_walk_dialogue(task, utils_sortie=None):
@@ -295,8 +310,9 @@ def place_after_magnifiers():
             names = [getattr(handler, "__name__", None) for handler in handlers]
         index = names.index(OPTION_AFTER) + 1 if OPTION_AFTER in names else len(handlers)
         # Magnifiers, then whatever the walk says, then the option that moves it on.
-        handlers.insert(index, handle_story_event_option)
-        handlers.insert(index, handle_story_walk_dialogue)
+        # Proxies, so a live reload of this module replaces what the list runs.
+        handlers.insert(index, proxy(__name__, handle_story_event_option.__name__))
+        handlers.insert(index, proxy(__name__, handle_story_walk_dialogue.__name__))
         logger.info(f"utils_story: walk dialogue and option handlers placed at {index}, after {OPTION_AFTER}")
 
 
@@ -306,7 +322,7 @@ def install():
     if utils is None or utils_story is None:
         return
     wrap(utils_story, "handle_enter_stage", lambda original: pressing_enter(original, utils), TAG)
-    insert_before(CONFIRM_ANCHOR, handle_skip_dialogue_confirm)
+    insert_before(CONFIRM_ANCHOR, proxy(__name__, handle_skip_dialogue_confirm.__name__))
     wrap(utils_story, "handle_auto_chat", pressing_auto_chat_once, AUTO_CHAT_TAG)
     wrap(utils_story, "handle_view_event", looking_closer, MAGNIFIER_TAG)
     place_after_magnifiers()

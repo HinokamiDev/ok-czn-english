@@ -12,6 +12,7 @@ import time
 from ok import Logger
 
 from src.en.handlers import each_list, loaded, register
+from src.en.live import proxy
 
 logger = Logger.get_logger(__name__)
 
@@ -129,7 +130,7 @@ def apply():
                     # By prefix: `observe.py` renames the anchor when it wraps it for recording.
                     index = next((i for i, handler in enumerate(handlers)
                                   if str(getattr(handler, "__name__", "")).startswith(ANCHOR)), len(handlers))
-                    handlers.insert(index, handle_story_fight_without_auto)
+                    handlers.insert(index, proxy(__name__, handle_story_fight_without_auto.__name__))
                     logger.info(f"utils_story: {handle_story_fight_without_auto.__name__} inserted at {index}")
 
     register(install)
