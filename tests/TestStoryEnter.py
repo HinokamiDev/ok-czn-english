@@ -337,7 +337,7 @@ class TestMapDrag(unittest.TestCase):
         from src.en.story_enter import MAP_DRAG, handle_map_drag
         task = MapTask(list(self.LIVE))
         swipes = []
-        task.swipe_relative = lambda x1, y1, x2, y2, duration=0: swipes.append(((x1, y1), (x2, y2)))
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0, settle_time=0: swipes.append(((x1, y1), (x2, y2)))
         self.assertTrue(handle_map_drag(task))
         self.assertEqual(swipes, [MAP_DRAG])
 
@@ -347,7 +347,7 @@ class TestMapDrag(unittest.TestCase):
         task = MapTask([FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04),
                         FakeBox("Toward the Abyss", 0.571, 0.493), FakeBox("The B", 0.967, 0.436, width=50)])
         swipes = []
-        task.swipe_relative = lambda x1, y1, x2, y2, duration=0: swipes.append(1)
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0, settle_time=0: swipes.append(1)
         self.assertTrue(handle_map_drag(task))
         self.assertEqual(swipes, [1])
 
@@ -784,6 +784,30 @@ class TestFightFirst(unittest.TestCase):
             self.assertTrue(handle_fight_first(task, fighting))
             self.assertFalse(handle_fight_first(task, types.SimpleNamespace(_read_hand_count=lambda task: None)))
         self.assertEqual(seen, [task])
+
+
+class TestMapDragBack(unittest.TestCase):
+    # Snapshot 20261011-234710: the drag carried the map to Chapter 3's locked end.
+    LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.403, 0.04), FakeBox("*Guardians", 0.449, 0.281),
+            FakeBox("#13-1", 0.534, 0.346), FakeBox("Woman Within the Fog", 0.221, 0.437, width=250),
+            FakeBox("#13", 0.273, 0.502)]
+
+    def test_one_drag_back_after_a_drag_that_found_nothing(self):
+        import time
+        from src.en import story_enter
+        task = MapTask(list(self.LIVE))
+        swipes = []
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0, settle_time=0: swipes.append(
+            ((x1, y1), (x2, y2), duration, settle_time))
+        self.assertFalse(story_enter.handle_map_drag_back(task))
+        setattr(task, story_enter.MAP_DRAG_PRESSED, time.monotonic() - 10)
+        self.assertTrue(story_enter.handle_map_drag_back(task))
+        self.assertFalse(story_enter.handle_map_drag_back(task))
+        (start, end, duration, hold), = swipes
+        self.assertEqual((start, end), story_enter.MAP_DRAG_BACK)
+        # Long enough for ok-script's millisecond steps, and held still before letting go.
+        self.assertGreaterEqual(duration, 2)
+        self.assertGreater(hold, 0)
 
 
 class TestOrder(unittest.TestCase):

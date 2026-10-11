@@ -106,6 +106,13 @@ NEXT_CHAPTER_ARROW = (0.961, 0.503)
 # 3) and its play button out of view, so nothing was entered. The map is dragged left to bring it in.
 EDGE_STAGE_REGION = (0.93, 0.40, 1.0, 0.70)
 MAP_DRAG = ((0.80, 0.62), (0.30, 0.62))
+# ok-script's window swipe takes its duration in milliseconds, makes one step per 100 of them and sleeps 10 ms a step:
+# "0.6 s" was six steps in 60 ms, a fling that carried the map past the next stage to the locked end of Chapter 3
+# (snapshot 20261011-234710: #13 and #13-1 locked) and, dragged back, to its start. Thirty steps, then a still
+# half-second before letting go, moves it by the drag and no further.
+MAP_DRAG_SECONDS = 3.0
+MAP_DRAG_HOLD = 0.5
+MAP_DRAG_BACK = ((0.30, 0.62), (0.80, 0.62))
 MAP_DRAG_PRESSED = "_en_story_map_drag"
 # Chapter 3 ended with no next-chapter label on the map at all ("#12 Epilogue II" ticked, nothing to its right), and the
 # tab bar's ▷ did nothing. Burak: back out one screen and enter the next chapter from there - so the back button at the
@@ -574,10 +581,53 @@ def handle_map_drag(task, utils_sortie=None):
         return False
     task.log_info(f"next stage cut off at the map's right edge ('{edge.name.strip()}'), dragging the map left")
     (x1, y1), (x2, y2) = MAP_DRAG
-    task.swipe_relative(x1, y1, x2, y2, duration=0.6)
+    drag_map(task, x1, y1, x2, y2)
     setattr(task, MAP_DRAG_PRESSED, time.monotonic())
     task.sleep(1)
     return True
+
+
+def drag_map(task, x1, y1, x2, y2):
+    """Drag the story map by exactly the distance given, with no fling after the drag."""
+    task.swipe_relative(x1, y1, x2, y2, duration=MAP_DRAG_SECONDS, settle_time=MAP_DRAG_HOLD)
+
+
+def handle_map_drag_back(task, utils_sortie=None):
+    """Drag the map back once when a drag left it with nothing to enter and nothing past its right edge.
+
+    Returns:
+        True when the map was dragged back.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    texts = task.all_texts or []
+    on_map = any((box.name or "").strip().casefold().startswith("chapter")
+                 and in_region(box, CHAPTER_TABS_REGION, width, height) for box in texts)
+    if not on_map or titled(task, BATTLE_MISSIONS):
+        return False
+    dragged = getattr(task, MAP_DRAG_PRESSED, None)
+    back = getattr(task, MAP_DRAG_BACK_PRESSED, None)
+    if not dragged or (back and back > dragged) or time.monotonic() - dragged > MAP_DRAG_BACK_WITHIN:
+        return False
+    if time.monotonic() - dragged < MAP_SETTLE_SECONDS:
+        return False
+    if any(in_region(box, EDGE_STAGE_REGION, width, height) for box in texts):
+        return False
+    if any(OBSERVE_STEM in (box.name or "").casefold() for box in texts):
+        return False
+    search = task.box_of_screen(*MAP_REGION)
+    if any(task.find_feature(feature_name="enterstory", box=search) or []):
+        return False
+    task.log_info("the drag left nothing to enter on the map, dragging it back")
+    (x1, y1), (x2, y2) = MAP_DRAG_BACK
+    drag_map(task, x1, y1, x2, y2)
+    setattr(task, MAP_DRAG_BACK_PRESSED, time.monotonic())
+    task.sleep(1)
+    return True
+
+
+MAP_DRAG_BACK_WITHIN = 90
 
 
 def handle_chapter_forward(task, utils_sortie=None):
@@ -1130,7 +1180,7 @@ def place_general_steps():
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
 STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
-               "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_chapter_forward")
+               "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_map_drag_back", "handle_chapter_forward")
 
 
 def place_after_magnifiers():
