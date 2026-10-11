@@ -6,6 +6,8 @@ pressed: the Story mode clicked the stage node on the map again every four secon
 The fork's own Enter handler only presses the round action button further right, so it never covered this one either.
 """
 
+import time
+
 from ok import Logger
 
 from src.en.handlers import insert_before, loaded, register, wrap
@@ -26,6 +28,12 @@ QUESTION_REGION = (0.15, 0.22, 0.85, 0.40)
 CONFIRM = "确认"
 CONFIRM_REGION = (0.50, 0.60, 0.85, 0.76)
 CONFIRM_ANCHOR = "handle_confirm"
+# Upstream's auto-dialogue check calls the toggle off below a 0.96 template match, but on the Global client the
+# switched-on toggle matches at 0.85-0.95 too, so it was pressed four times in five seconds - on, off, on, off -
+# and the scene was left waiting with Auto off. One press, then time for the toggle to show its new state.
+AUTO_CHAT_COOLDOWN = 30
+AUTO_CHAT_PRESSED = "_en_auto_chat_pressed"
+AUTO_CHAT_TAG = "one auto-dialogue press"
 
 _patched = False
 
@@ -48,6 +56,26 @@ def handle_skip_dialogue_confirm(task):
     task.click_box(confirm)
     task.sleep(1)
     return True
+
+
+def pressing_auto_chat_once(handle_auto_chat):
+    """Wrap upstream's auto-dialogue check so it presses the toggle at most once per cooldown.
+
+    Args:
+        handle_auto_chat: The handler to wrap.
+
+    Returns:
+        The wrapped handler.
+    """
+    def wrapped(task):
+        if time.monotonic() - (getattr(task, AUTO_CHAT_PRESSED, None) or float("-inf")) < AUTO_CHAT_COOLDOWN:
+            return False
+        pressed = handle_auto_chat(task)
+        if pressed:
+            setattr(task, AUTO_CHAT_PRESSED, time.monotonic())
+        return pressed
+
+    return wrapped
 
 
 def pressing_enter(handle_enter_stage, utils):
@@ -79,6 +107,7 @@ def install():
         return
     wrap(utils_story, "handle_enter_stage", lambda original: pressing_enter(original, utils), TAG)
     insert_before(CONFIRM_ANCHOR, handle_skip_dialogue_confirm)
+    wrap(utils_story, "handle_auto_chat", pressing_auto_chat_once, AUTO_CHAT_TAG)
 
 
 def apply():

@@ -17,6 +17,10 @@ logger = Logger.get_logger(__name__)
 
 # How long the picture has to hold still. Upstream's own fallback acts at 10s and its notice comes at 60s.
 STILL_SECONDS = 25
+# How long the text on screen has to stay the same. A story scene or a fight left waiting keeps its characters
+# moving, so the picture never holds still there - the Story mode sat 14 minutes on one with no snapshot - while
+# its text does. A dialogue playing on, or a fight on Auto, changes its text every few seconds.
+TEXT_STILL_SECONDS = 45
 # Mean grey-level change of the thumbnail below which two frames count as the same picture.
 STILL_DIFFERENCE = 2.0
 THUMBNAIL = (64, 36)
@@ -28,6 +32,9 @@ KEEP = 20
 LAST_PICTURE = "_en_snapshot_picture"
 STILL_SINCE = "_en_snapshot_still_since"
 REPORTED = "_en_snapshot_reported"
+LAST_TEXT = "_en_snapshot_text"
+TEXT_SINCE = "_en_snapshot_text_since"
+TEXT_REPORTED = "_en_snapshot_text_reported"
 # A question waiting for an answer is a planned wait, not a stuck screen.
 ASKING = "_en_epiphany_asking"
 
@@ -83,6 +90,38 @@ def save(task, frame, seconds):
     return image
 
 
+def text_signature(task):
+    """The text on screen, as one comparable value, with digits dropped so a ticking timer is not movement."""
+    return tuple(sorted({"".join(ch for ch in (box.name or "") if not ch.isdigit()).strip()
+                         for box in getattr(task, "all_texts", None) or []} - {""}))
+
+
+def check_text(task, now):
+    """Save the frame once the text on screen has not changed for `TEXT_STILL_SECONDS`.
+
+    Returns:
+        True when a snapshot was taken.
+    """
+    signature = text_signature(task)
+    if not signature:
+        return False
+    if signature != getattr(task, LAST_TEXT, None):
+        setattr(task, LAST_TEXT, signature)
+        setattr(task, TEXT_SINCE, now)
+        setattr(task, TEXT_REPORTED, False)
+        return False
+    since = getattr(task, TEXT_SINCE, None)
+    if since is None or getattr(task, TEXT_REPORTED, False) or now - since < TEXT_STILL_SECONDS:
+        return False
+    setattr(task, TEXT_REPORTED, True)
+    frame = getattr(task, "frame", None)
+    image = save(task, frame, now - since) if frame is not None else None
+    if image:
+        status.event(task, "takildi", f"Text on screen unchanged for {int(now - since)}s, snapshot {image}")
+        task.log_info(f"text on screen unchanged for {int(now - since)}s, saved {image}")
+    return bool(image)
+
+
 def check(task, now=None):
     """Compare this frame with the last, and save it once it has held still long enough.
 
@@ -92,11 +131,16 @@ def check(task, now=None):
     """
     if getattr(task, ASKING, None):
         setattr(task, STILL_SINCE, None)
+        setattr(task, TEXT_SINCE, None)
         return
     frame = getattr(task, "frame", None)
     if frame is None:
         return
     now = time.monotonic() if now is None else now
+    if check_text(task, now):
+        # One snapshot covers both: the picture's own clock is marked reported for this spell too.
+        setattr(task, REPORTED, True)
+        return
     picture = thumbnail(frame)
     last = getattr(task, LAST_PICTURE, None)
     setattr(task, LAST_PICTURE, picture)
@@ -111,6 +155,8 @@ def check(task, now=None):
     if getattr(task, REPORTED, False) or now - since < STILL_SECONDS:
         return
     setattr(task, REPORTED, True)
+    # The text clock is part of the same spell, so it does not report the same screen a second time.
+    setattr(task, TEXT_REPORTED, True)
     image = save(task, frame, now - since)
     if image:
         status.event(task, "takildi", f"Screen unchanged for {int(now - since)}s, snapshot {image}")

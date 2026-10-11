@@ -54,6 +54,7 @@ class TestSnapshot(unittest.TestCase):
     def test_a_moving_screen_is_never_saved(self):
         for second in range(0, 120, 5):
             self.task.frame = np.full((1080, 1920, 3), (second * 7) % 255, dtype=np.uint8)
+            self.task.all_texts = [FakeBox(f"line {chr(65 + second % 26)}", 0.5, 0.8)]
             snapshot.check(self.task, now=second)
         self.assertEqual(self.saved(), [])
 
@@ -70,6 +71,41 @@ class TestSnapshot(unittest.TestCase):
         snapshot.check(self.task, now=0)
         snapshot.check(self.task, now=100)
         self.assertEqual(self.saved(), [])
+
+
+class TestTextStill(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        path.start()
+        self.addCleanup(path.stop)
+        self.task = FakeTask()
+
+    def moving(self, second):
+        # Characters on a story scene keep moving, so the picture changes every frame.
+        self.task.frame = np.full((1080, 1920, 3), (second * 13) % 255, dtype=np.uint8)
+
+    def test_a_moving_scene_with_the_same_text_is_saved(self):
+        for second in range(0, snapshot.TEXT_STILL_SECONDS + 10, 5):
+            self.moving(second)
+            snapshot.check(self.task, now=second)
+        self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
+        self.assertIn("Text on screen unchanged", status.read()["mesaj"])
+
+    def test_text_that_keeps_changing_is_not_stuck(self):
+        for second in range(0, 120, 5):
+            self.moving(second)
+            self.task.all_texts = [FakeBox(f"line {chr(65 + second % 26)}", 0.5, 0.8)]
+            snapshot.check(self.task, now=second)
+        self.assertFalse(snapshot.folder().exists() and list(snapshot.folder().glob("*.png")))
+
+    def test_a_ticking_number_alone_is_not_movement(self):
+        for second in range(0, snapshot.TEXT_STILL_SECONDS + 10, 5):
+            self.moving(second)
+            self.task.all_texts = [FakeBox(f"Turn {second}", 0.5, 0.8)]
+            snapshot.check(self.task, now=second)
+        self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
 
 
 if __name__ == "__main__":

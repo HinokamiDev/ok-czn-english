@@ -10,7 +10,9 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.en.story_enter import BUTTON_POINT, handle_skip_dialogue_confirm, pressing_enter  # noqa: E402
+from src.en.story_enter import (  # noqa: E402
+    BUTTON_POINT, handle_skip_dialogue_confirm, pressing_auto_chat_once, pressing_enter,
+)
 from tests.fakes import FakeBox  # noqa: E402
 
 WIDTH, HEIGHT = 1920, 1080
@@ -85,6 +87,24 @@ class TestSkipDialogueConfirm(unittest.TestCase):
         task = FakeTask([FakeBox("确认", 0.666, 0.683)])
         self.assertFalse(handle_skip_dialogue_confirm(task))
         self.assertEqual(task.clicked, [])
+
+
+class TestAutoChatOnce(unittest.TestCase):
+    def test_the_toggle_is_pressed_once_not_four_times(self):
+        presses = []
+        handler = pressing_auto_chat_once(lambda task: presses.append(1) or True)
+        task = FakeTask([])
+        # The live run pressed it at 30.679, 32.213, 33.701 and 35.262.
+        results = [handler(task) for _ in range(4)]
+        self.assertEqual((results, len(presses)), ([True, False, False, False], 1))
+
+    def test_nothing_pressed_starts_no_cooldown(self):
+        presses = []
+        handler = pressing_auto_chat_once(lambda task: presses.append(1) or False)
+        task = FakeTask([])
+        handler(task)
+        handler(task)
+        self.assertEqual(len(presses), 2)
 
 
 if __name__ == "__main__":
