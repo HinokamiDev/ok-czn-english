@@ -441,6 +441,26 @@ class TestEffectPanel(unittest.TestCase):
         self.assertEqual((pressed, task.clicked), ([PANEL_CLOSE], []))
 
 
+class TestChapterForward(unittest.TestCase):
+    # Snapshot 20261011-214841.
+    LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.404, 0.04), FakeBox("Epilogue", 0.178, 0.437),
+            FakeBox("Epilogue l", 0.448, 0.437), FakeBox("#11", 0.274, 0.503), FakeBox("#12", 0.537, 0.502)]
+
+    def test_a_finished_map_with_nothing_beyond_tries_the_tab_arrow(self):
+        from src.en.story_enter import CHAPTER_FORWARD, handle_chapter_forward
+        task = MapTask(list(self.LIVE))
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertTrue(handle_chapter_forward(task))
+        self.assertFalse(handle_chapter_forward(task))
+        self.assertEqual(pressed, [CHAPTER_FORWARD])
+
+    def test_a_stage_at_the_edge_is_dragged_to_instead(self):
+        from src.en.story_enter import handle_chapter_forward
+        task = MapTask(list(self.LIVE) + [FakeBox("#13", 0.985, 0.5, width=20)])
+        self.assertFalse(handle_chapter_forward(task))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

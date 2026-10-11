@@ -99,6 +99,12 @@ NEXT_CHAPTER_ARROW = (0.961, 0.503)
 EDGE_STAGE_REGION = (0.93, 0.40, 1.0, 0.70)
 MAP_DRAG = ((0.80, 0.62), (0.30, 0.62))
 MAP_DRAG_PRESSED = "_en_story_map_drag"
+# Chapter 3 ended with no next-chapter label on the map at all ("#12 Epilogue II" ticked, nothing to its right). The
+# tab bar's own forward arrow (▷ at (0.746, 0.044)) is the way on then; tried at most every 30s, since a chapter the
+# game has not opened yet leaves it doing nothing.
+CHAPTER_FORWARD = (0.746, 0.044)
+CHAPTER_FORWARD_PRESSED = "_en_story_chapter_forward"
+CHAPTER_FORWARD_COOLDOWN = 30
 # A chaos stage on the story map is captioned "Observe" ("#07 Observe" in Chapter 3, read live at (0.567, 0.504));
 # upstream looks for the Chinese 观测, so it was never pressed. It is a Chaos run the Story mode cannot play: after
 # pressing it the run is handed to the Chaos mode, and the Story mode is started again when that run stops.
@@ -414,6 +420,37 @@ def handle_map_drag(task, utils_sortie=None):
     return True
 
 
+def handle_chapter_forward(task, utils_sortie=None):
+    """Go to the next chapter by the tab bar's arrow once a map has nothing left to enter and nothing past its edge.
+
+    Returns:
+        True when the arrow was pressed.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    texts = task.all_texts or []
+    on_map = any((box.name or "").strip().casefold().startswith("chapter")
+                 and in_region(box, CHAPTER_TABS_REGION, width, height) for box in texts)
+    if not on_map:
+        return False
+    if any(in_region(box, EDGE_STAGE_REGION, width, height) for box in texts):
+        return False
+    if any((box.name or "").strip().casefold() == OBSERVE for box in texts):
+        return False
+    search = task.box_of_screen(*MAP_REGION)
+    if any(task.find_feature(feature_name="enterstory", box=search) or []):
+        return False
+    last = getattr(task, CHAPTER_FORWARD_PRESSED, None)
+    if last and time.monotonic() - last < CHAPTER_FORWARD_COOLDOWN:
+        return False
+    task.log_info("nothing left on this chapter's map and no next chapter shown on it, trying the tab bar's arrow")
+    task.click_relative(*CHAPTER_FORWARD)
+    setattr(task, CHAPTER_FORWARD_PRESSED, time.monotonic())
+    task.sleep(2)
+    return True
+
+
 def handle_observe_stage(task, utils_sortie=None):
     """Enter a chaos stage from the story map and hand its run to the Chaos mode.
 
@@ -706,7 +743,7 @@ def place_general_steps():
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
 STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
-               "handle_map_drag")
+               "handle_map_drag", "handle_chapter_forward")
 
 
 def place_after_magnifiers():
