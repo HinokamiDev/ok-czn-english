@@ -56,7 +56,7 @@ class TestAutostart(unittest.TestCase):
 
     def test_a_request_powershell_wrote_with_a_bom_is_read(self):
         # The supervisor's Set-Content -Encoding UTF8 writes this, and the first live restart dropped it.
-        autostart.request_path().write_bytes(b"ï»¿" + b'{"mod": "StoryMode"}')
+        autostart.request_path().write_bytes(bytes([0xEF, 0xBB, 0xBF]) + b'{"mod": "StoryMode"}')
         autostart.start_requested(FakeExecutor(), self.controller)
         self.assertEqual(self.controller.started, ["StoryMode"])
 
