@@ -37,6 +37,9 @@ TEXT_SINCE = "_en_snapshot_text_since"
 TEXT_REPORTED = "_en_snapshot_text_reported"
 # A question waiting for an answer is a planned wait, not a stuck screen.
 ASKING = "_en_epiphany_asking"
+# A watcher can ask for the current frame at any time by creating this file beside the status file. A fight can be
+# stuck while its text keeps changing - OCR reads the hand differently every frame - so waiting is not always enough.
+REQUEST_NAME = "goruntu.istek"
 
 
 def folder():
@@ -122,6 +125,24 @@ def check_text(task, now):
     return bool(image)
 
 
+def answer_request(task):
+    """Save the current frame when a watcher asked for it.
+
+    Returns:
+        True when a requested snapshot was taken.
+    """
+    request = status.PATH.parent / REQUEST_NAME
+    if not request.exists():
+        return False
+    request.unlink(missing_ok=True)
+    frame = getattr(task, "frame", None)
+    image = save(task, frame, 0) if frame is not None else None
+    if image:
+        status.event(task, "takildi", f"Snapshot taken on request, {image}")
+        task.log_info(f"snapshot taken on request, saved {image}")
+    return bool(image)
+
+
 def check(task, now=None):
     """Compare this frame with the last, and save it once it has held still long enough.
 
@@ -129,6 +150,8 @@ def check(task, now=None):
         task: The running mode, whose `frame` is the current capture.
         now: The time, for tests.
     """
+    if answer_request(task):
+        return
     if getattr(task, ASKING, None):
         setattr(task, STILL_SINCE, None)
         setattr(task, TEXT_SINCE, None)

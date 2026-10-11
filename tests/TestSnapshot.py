@@ -73,6 +73,24 @@ class TestSnapshot(unittest.TestCase):
         self.assertEqual(self.saved(), [])
 
 
+class TestOnRequest(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        path.start()
+        self.addCleanup(path.stop)
+
+    def test_a_requested_snapshot_is_taken_at_once_and_the_request_cleared(self):
+        task = FakeTask()
+        request = status.PATH.parent / snapshot.REQUEST_NAME
+        request.write_text("", encoding="utf-8")
+        snapshot.check(task, now=0)
+        self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
+        self.assertFalse(request.exists())
+        self.assertIn("on request", status.read()["mesaj"])
+
+
 class TestTextStill(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
