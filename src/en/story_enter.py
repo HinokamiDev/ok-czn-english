@@ -34,6 +34,14 @@ CONFIRM_ANCHOR = "handle_confirm"
 AUTO_CHAT_COOLDOWN = 30
 AUTO_CHAT_PRESSED = "_en_auto_chat_pressed"
 AUTO_CHAT_TAG = "one auto-dialogue press"
+# A story walk offers its next step as a box of text above the bottom edge, such as "Enter the ventilation shaft"
+# over "Event Encounter: Rescue Alcea" - read live at (0.475, 0.798) and (0.502, 0.836). Upstream's Story mode only
+# looks for a "check" icon there, so the walk stood still. The box is pressed on its first line.
+OPTION_BAND = (0.25, 0.68, 0.75, 0.94)
+ENCOUNTER = "event encounter"
+OPTION_ANCHOR = "handle_view_event"
+OPTION_PRESSED = "_en_story_option_pressed"
+OPTION_COOLDOWN = 5
 
 _patched = False
 
@@ -54,6 +62,35 @@ def handle_skip_dialogue_confirm(task):
         return False
     task.log_info("confirming the dialogue skip")
     task.click_box(confirm)
+    task.sleep(1)
+    return True
+
+
+def handle_story_event_option(task):
+    """Press the step a story walk offers, when it is the box naming an event encounter.
+
+    Args:
+        task: The running task, whose `all_texts` is the current screen.
+
+    Returns:
+        True when the option was pressed.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    band = [box for box in task.all_texts or [] if in_region(box, OPTION_BAND, width, height)]
+    encounter = next((box for box in band if ENCOUNTER in (box.name or "").casefold()), None)
+    if encounter is None:
+        return False
+    above = [box for box in band if box is not encounter and box.y < encounter.y
+             and abs((box.x + box.width / 2) - (encounter.x + encounter.width / 2)) < 0.15 * width]
+    title = max(above, key=lambda box: box.y, default=encounter)
+    last = getattr(task, OPTION_PRESSED, None)
+    if last and last[0] == title.name and time.monotonic() - last[1] < OPTION_COOLDOWN:
+        return False
+    task.log_info(f"story walk offers '{title.name}' ({encounter.name}), pressing it")
+    task.click_box(title)
+    setattr(task, OPTION_PRESSED, (title.name, time.monotonic()))
     task.sleep(1)
     return True
 
@@ -108,6 +145,7 @@ def install():
     wrap(utils_story, "handle_enter_stage", lambda original: pressing_enter(original, utils), TAG)
     insert_before(CONFIRM_ANCHOR, handle_skip_dialogue_confirm)
     wrap(utils_story, "handle_auto_chat", pressing_auto_chat_once, AUTO_CHAT_TAG)
+    insert_before(OPTION_ANCHOR, handle_story_event_option)
 
 
 def apply():

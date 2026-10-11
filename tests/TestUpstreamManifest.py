@@ -66,6 +66,7 @@ ANCHORS_IN_LISTS = {
     "handle_view_original": ("utils_chaos", "utils_sortie"),
     "handle_enter_stage": ("utils_story",),
     "handle_auto_chat": ("utils_story",),
+    "handle_view_event": ("utils_story",),
     "log_node_status": ("utils_chaos", "utils_sortie"),
 }
 

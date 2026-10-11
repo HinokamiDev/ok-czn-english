@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.en.story_enter import (  # noqa: E402
-    BUTTON_POINT, handle_skip_dialogue_confirm, pressing_auto_chat_once, pressing_enter,
+    BUTTON_POINT, handle_skip_dialogue_confirm, handle_story_event_option, pressing_auto_chat_once, pressing_enter,
 )
 from tests.fakes import FakeBox  # noqa: E402
 
@@ -105,6 +105,28 @@ class TestAutoChatOnce(unittest.TestCase):
         handler(task)
         handler(task)
         self.assertEqual(len(presses), 2)
+
+
+class TestStoryEventOption(unittest.TestCase):
+    # Read off the live snapshot 20261011-192220.
+    LIVE = [FakeBox("356/356", 0.211, 0.038),
+            FakeBox("To rescue Nine's companion, 'Alcea',", 0.501, 0.21, width=500),
+            FakeBox("Enter the ventilation shaft", 0.475, 0.798, width=320),
+            FakeBox("Event Encounter: Rescue Alcea", 0.502, 0.836, width=380)]
+
+    def test_the_offered_step_is_pressed_on_its_title(self):
+        task = FakeTask(list(self.LIVE))
+        self.assertTrue(handle_story_event_option(task))
+        self.assertEqual(task.clicked, ["Enter the ventilation shaft"])
+
+    def test_it_is_not_pressed_again_at_once(self):
+        task = FakeTask(list(self.LIVE))
+        handle_story_event_option(task)
+        self.assertFalse(handle_story_event_option(task))
+
+    def test_a_screen_without_an_encounter_is_left_alone(self):
+        task = FakeTask([FakeBox("Enter the ventilation shaft", 0.475, 0.798)])
+        self.assertFalse(handle_story_event_option(task))
 
 
 if __name__ == "__main__":
