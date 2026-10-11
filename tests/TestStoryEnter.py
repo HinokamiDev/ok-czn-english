@@ -298,6 +298,8 @@ class TestSpeechBoxFrame(unittest.TestCase):
     def test_the_box_is_seen_without_any_text(self):
         from src.en.story_enter import speech_box_on_screen
         self.assertTrue(speech_box_on_screen(self.frame("speech_box_dots.png")))
+        # Act 4 Chapter 3: a dark box on a bright sky, no rule along its edges.
+        self.assertTrue(speech_box_on_screen(self.frame("speech_box_bright_scene.png")))
 
     def test_no_box_on_a_dark_walk_or_a_bright_map(self):
         from src.en.story_enter import speech_box_on_screen

@@ -82,6 +82,8 @@ BOX_SPAN = (0.10, 0.40)
 BOX_INSIDE = (0.15, 0.26)
 BOX_RULE_CONTRAST = 18
 BOX_INSIDE_DARK = 40
+BOX_EDGE_STEP = 100
+BOX_BAND_DARK = 60
 BOX_CENTRE = (0.25, 0.20)
 # A finished stage is announced across the middle of the map ("01 / Warriors of the Arena / Complete", the last read
 # live at (0.499, 0.568)) and waits for a tap. Nothing in upstream's Story list answers it.
@@ -818,7 +820,25 @@ def speech_box_on_screen(frame):
         if not rows or max(rows) - float(np.median(rows)) < BOX_RULE_CONTRAST:
             return False
     inside = grey[int(BOX_INSIDE[0] * height):int(BOX_INSIDE[1] * height), columns]
-    return float(inside.mean()) < BOX_INSIDE_DARK
+    if float(inside.mean()) < BOX_INSIDE_DARK:
+        return True
+    return dark_band_on_bright_scene(grey, columns, height)
+
+
+def dark_band_on_bright_scene(grey, columns, height):
+    """Say whether the box stands as a dark band against a bright scene, with no rule drawn along its edges.
+
+    Act 4 Chapter 3's box sat on a sky: rows at 213 above and below, 42 inside, the line's text lifting the inside's
+    mean to 50 (snapshot 20261011-232427), so neither the rule test nor the dark-inside test held.
+    """
+    import numpy as np
+
+    for top, bottom in BOX_RULES:
+        rows = [grey[y, columns].mean() for y in range(int(top * height), int(bottom * height))]
+        if not rows or max(rows) - min(rows) < BOX_EDGE_STEP:
+            return False
+    inside = [grey[y, columns].mean() for y in range(int(BOX_INSIDE[0] * height), int(BOX_INSIDE[1] * height))]
+    return bool(inside) and float(np.median(inside)) < BOX_BAND_DARK
 
 
 def walk_dialogue_step(task, utils_sortie=None):
