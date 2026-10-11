@@ -91,6 +91,14 @@ class TestSkipDialogueConfirm(unittest.TestCase):
         self.assertTrue(handle_skip_dialogue_confirm(task))
         self.assertEqual(task.clicked, ["确认"])
 
+    def test_the_act_4_wording_lower_down_is_confirmed(self):
+        # Snapshot 20261011-221553.
+        task = FakeTask([FakeBox("Do you want to skip this story?", 0.502, 0.41, width=500),
+                         FakeBox("Do not show until next login", 0.52, 0.53, width=400),
+                         FakeBox("取消", 0.347, 0.632), FakeBox("确认", 0.666, 0.632)])
+        self.assertTrue(handle_skip_dialogue_confirm(task))
+        self.assertEqual(task.clicked, ["确认"])
+
     def test_a_misread_last_word_still_counts(self):
         # Snapshot 20261011-213047.
         task = FakeTask([FakeBox("Do you want to skip the current dlialogue?", 0.5, 0.212, width=700),

@@ -27,8 +27,11 @@ ENTER = "进入"
 # only looks along the bottom edge, so the box stayed up. Read live: title at (0.501, 0.314), Confirm at (0.666, 0.683).
 # Shortened: OCR read the last word as "dlialogue" once.
 SKIP_QUESTION = "skip the current"
+# Act 4 asks it as "Do you want to skip this story?", lower down: question at (0.50, 0.41), Confirm at (0.66, 0.63)
+# (snapshot 20261011-221553), and the box stayed up while the skip button was pressed again behind it.
+SKIP_QUESTIONS = (SKIP_QUESTION, "skip this story")
 # The box grows when it lists the scene's main characters: question at (0.5, 0.212), Confirm at (0.662, 0.786).
-QUESTION_REGION = (0.15, 0.15, 0.85, 0.40)
+QUESTION_REGION = (0.15, 0.15, 0.85, 0.50)
 CONFIRM = "确认"
 CONFIRM_REGION = (0.50, 0.60, 0.85, 0.86)
 CONFIRM_ANCHOR = "handle_confirm"
@@ -125,7 +128,7 @@ def handle_skip_dialogue_confirm(task):
     Returns:
         True when the box was there and its Confirm pressed.
     """
-    if text_in_region(task, SKIP_QUESTION, QUESTION_REGION) is None:
+    if all(text_in_region(task, question, QUESTION_REGION) is None for question in SKIP_QUESTIONS):
         return False
     confirm = text_in_region(task, CONFIRM, CONFIRM_REGION) or text_in_region(task, "confirm", CONFIRM_REGION)
     if confirm is None:
