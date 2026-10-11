@@ -25,7 +25,8 @@ ENTER = "进入"
 
 # The dialogue skip asks to be confirmed in a box across the middle of the screen. Upstream's Story `handle_confirm`
 # only looks along the bottom edge, so the box stayed up. Read live: title at (0.501, 0.314), Confirm at (0.666, 0.683).
-SKIP_QUESTION = "skip the current dialogue"
+# Shortened: OCR read the last word as "dlialogue" once.
+SKIP_QUESTION = "skip the current"
 # The box grows when it lists the scene's main characters: question at (0.5, 0.212), Confirm at (0.662, 0.786).
 QUESTION_REGION = (0.15, 0.15, 0.85, 0.40)
 CONFIRM = "确认"
