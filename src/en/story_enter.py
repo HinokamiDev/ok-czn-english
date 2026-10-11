@@ -8,7 +8,8 @@ The fork's own Enter handler only presses the round action button further right,
 
 from ok import Logger
 
-from src.en.handlers import loaded, register, wrap
+from src.en.handlers import insert_before, loaded, register, wrap
+from src.en.screen import text_in_region
 
 logger = Logger.get_logger(__name__)
 
@@ -18,7 +19,35 @@ BUTTON_POINT = (0.820, 0.931)
 STAGE_CAPTION = "入场"
 ENTER = "进入"
 
+# The dialogue skip asks to be confirmed in a box across the middle of the screen. Upstream's Story `handle_confirm`
+# only looks along the bottom edge, so the box stayed up. Read live: title at (0.501, 0.314), Confirm at (0.666, 0.683).
+SKIP_QUESTION = "skip the current dialogue"
+QUESTION_REGION = (0.15, 0.22, 0.85, 0.40)
+CONFIRM = "确认"
+CONFIRM_REGION = (0.50, 0.60, 0.85, 0.76)
+CONFIRM_ANCHOR = "handle_confirm"
+
 _patched = False
+
+
+def handle_skip_dialogue_confirm(task):
+    """Confirm the box that asks whether to skip the current dialogue.
+
+    Args:
+        task: The running task, whose `all_texts` is the current screen.
+
+    Returns:
+        True when the box was there and its Confirm pressed.
+    """
+    if text_in_region(task, SKIP_QUESTION, QUESTION_REGION) is None:
+        return False
+    confirm = text_in_region(task, CONFIRM, CONFIRM_REGION) or text_in_region(task, "confirm", CONFIRM_REGION)
+    if confirm is None:
+        return False
+    task.log_info("confirming the dialogue skip")
+    task.click_box(confirm)
+    task.sleep(1)
+    return True
 
 
 def pressing_enter(handle_enter_stage, utils):
@@ -49,6 +78,7 @@ def install():
     if utils is None or utils_story is None:
         return
     wrap(utils_story, "handle_enter_stage", lambda original: pressing_enter(original, utils), TAG)
+    insert_before(CONFIRM_ANCHOR, handle_skip_dialogue_confirm)
 
 
 def apply():

@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.en.story_enter import BUTTON_POINT, pressing_enter  # noqa: E402
+from src.en.story_enter import BUTTON_POINT, handle_skip_dialogue_confirm, pressing_enter  # noqa: E402
 from tests.fakes import FakeBox  # noqa: E402
 
 WIDTH, HEIGHT = 1920, 1080
@@ -67,6 +67,23 @@ class TestStoryEnter(unittest.TestCase):
     def test_other_text_there_is_not_pressed(self):
         task = FakeTask([FakeBox("Reward", *BUTTON_POINT)])
         self.assertFalse(self.handler(task))
+        self.assertEqual(task.clicked, [])
+
+
+class TestSkipDialogueConfirm(unittest.TestCase):
+    # Read off the live snapshot 20261011-184545.
+    LIVE = [FakeBox("Do you want to skip the current dialogue?", 0.501, 0.314, width=700),
+            FakeBox("Do not show until next login", 0.519, 0.575, width=400),
+            FakeBox("取消", 0.348, 0.684), FakeBox("确认", 0.666, 0.683)]
+
+    def test_the_skip_question_is_confirmed(self):
+        task = FakeTask(list(self.LIVE))
+        self.assertTrue(handle_skip_dialogue_confirm(task))
+        self.assertEqual(task.clicked, ["确认"])
+
+    def test_without_the_question_nothing_is_pressed(self):
+        task = FakeTask([FakeBox("确认", 0.666, 0.683)])
+        self.assertFalse(handle_skip_dialogue_confirm(task))
         self.assertEqual(task.clicked, [])
 
 
