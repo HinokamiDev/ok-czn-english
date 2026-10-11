@@ -35,7 +35,8 @@ def take_request():
     if not path.exists():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        # utf-8-sig: Windows PowerShell 5.1 writes a byte-order mark ahead of UTF-8, which plain utf-8 refuses.
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as error:
         logger.warning(f"ignoring an unreadable start request: {error}")
         data = {}
