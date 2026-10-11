@@ -111,6 +111,16 @@ class TestActions(unittest.TestCase):
         self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
         self.assertIn("No click or key", status.read()["mesaj"])
 
+    def test_a_mode_started_again_after_a_break_is_not_idle_at_once(self):
+        actions = self.task.__dict__.setdefault(snapshot.ACTIONS, snapshot.deque(maxlen=16))
+        actions.append((0, "click", "@1,1"))
+        self.moving(0)
+        snapshot.check(self.task, now=0)
+        # Stopped for a hand-over, started again fifteen minutes later.
+        self.moving(900)
+        snapshot.check(self.task, now=900)
+        self.assertFalse(snapshot.folder().exists() and list(snapshot.folder().glob("*.png")))
+
     def test_clicks_on_boxes_are_described_by_name_and_place(self):
         self.assertEqual(snapshot.describe_click((FakeBox("确认", 0.5, 0.5),), {}), "确认@45,26")
         self.assertEqual(snapshot.describe_click((1532, 59), {}), "@76,2")

@@ -52,6 +52,8 @@ IDLE_SECONDS = 180
 LOOP_REPORTED = "_en_snapshot_loop_reported"
 IDLE_REPORTED = "_en_snapshot_idle_reported"
 RUN_SEEN = "_en_snapshot_run_seen"
+LAST_CHECK = "_en_snapshot_last_check"
+NEW_RUN_GAP = 60
 HOOKED = "_en_snapshot_hooked"
 
 
@@ -192,6 +194,15 @@ def check_actions(task, now):
     Returns:
         True when a snapshot was taken.
     """
+    # A mode handed back to after a break starts a new run: its last action is from the previous one. Chaos, started
+    # again for Act 5's second chaos stage, called itself idle for 870s on its first frame.
+    previous = getattr(task, LAST_CHECK, None)
+    setattr(task, LAST_CHECK, now)
+    if previous is not None and now - previous > NEW_RUN_GAP:
+        setattr(task, RUN_SEEN, now)
+        held = getattr(task, ACTIONS, None)
+        if held is not None:
+            held.clear()
     actions = list(getattr(task, ACTIONS, None) or [])
     task.__dict__.setdefault(RUN_SEEN, now)
     last = actions[-1] if actions else None
