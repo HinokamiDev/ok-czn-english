@@ -107,6 +107,10 @@ class TestAutoChatOnce(unittest.TestCase):
         self.assertEqual(len(presses), 2)
 
 
+NO_FIGHT = types.SimpleNamespace(_read_hand_count=lambda task: None)
+IN_FIGHT = types.SimpleNamespace(_read_hand_count=lambda task: 5)
+
+
 class TestStoryEventOption(unittest.TestCase):
     # Read off the live snapshot 20261011-192220.
     LIVE = [FakeBox("356/356", 0.211, 0.038),
@@ -116,17 +120,27 @@ class TestStoryEventOption(unittest.TestCase):
 
     def test_the_offered_step_is_pressed_on_its_title(self):
         task = FakeTask(list(self.LIVE))
-        self.assertTrue(handle_story_event_option(task))
+        self.assertTrue(handle_story_event_option(task, NO_FIGHT))
         self.assertEqual(task.clicked, ["Enter the ventilation shaft"])
 
     def test_it_is_not_pressed_again_at_once(self):
         task = FakeTask(list(self.LIVE))
-        handle_story_event_option(task)
-        self.assertFalse(handle_story_event_option(task))
+        handle_story_event_option(task, NO_FIGHT)
+        self.assertFalse(handle_story_event_option(task, NO_FIGHT))
 
-    def test_a_screen_without_an_encounter_is_left_alone(self):
-        task = FakeTask([FakeBox("Enter the ventilation shaft", 0.475, 0.798)])
-        self.assertFalse(handle_story_event_option(task))
+    def test_an_option_without_an_encounter_line_on_a_walk_is_pressed(self):
+        task = FakeTask([FakeBox("356/356", 0.211, 0.038), FakeBox("Examine the rubble", 0.5, 0.8)])
+        self.assertTrue(handle_story_event_option(task, NO_FIGHT))
+        self.assertEqual(task.clicked, ["Examine the rubble"])
+
+    def test_text_in_the_band_off_a_walk_is_left_alone(self):
+        task = FakeTask([FakeBox("Examine the rubble", 0.5, 0.8)])
+        self.assertFalse(handle_story_event_option(task, NO_FIGHT))
+
+    def test_a_fights_hand_is_never_taken_for_options(self):
+        task = FakeTask([FakeBox("1567 / 1567", 0.2, 0.04), FakeBox("Fatal Strike", 0.45, 0.85)])
+        self.assertFalse(handle_story_event_option(task, IN_FIGHT))
+        self.assertEqual(task.clicked, [])
 
 
 if __name__ == "__main__":

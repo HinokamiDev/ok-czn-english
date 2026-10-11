@@ -6,6 +6,7 @@ pressed: the Story mode clicked the stage node on the map again every four secon
 The fork's own Enter handler only presses the round action button further right, so it never covered this one either.
 """
 
+import re
 import time
 
 from ok import Logger
@@ -42,6 +43,11 @@ ENCOUNTER = "event encounter"
 OPTION_ANCHOR = "handle_view_event"
 OPTION_PRESSED = "_en_story_option_pressed"
 OPTION_COOLDOWN = 5
+# Options without an encounter line look the same and stalled the walk too, so a walk screen is recognised by the
+# party's health along the top-left ("356/356" at (0.211, 0.038)) and any short text in the band is taken.
+HEALTH = re.compile(r"^\d+\s*/\s*\d+$")
+HEALTH_REGION = (0.05, 0.0, 0.45, 0.09)
+MAX_OPTION_LINES = 4
 
 _patched = False
 
@@ -66,29 +72,46 @@ def handle_skip_dialogue_confirm(task):
     return True
 
 
-def handle_story_event_option(task):
-    """Press the step a story walk offers, when it is the box naming an event encounter.
+def on_story_walk(task, utils_sortie):
+    """Say whether the screen is a story walk: the party's health along the top-left, and no fight's hand counter.
 
-    Args:
-        task: The running task, whose `all_texts` is the current screen.
-
-    Returns:
-        True when the option was pressed.
+    The fight screen shows the party's health too, and its hand names sit in the same band as a walk's options,
+    so a hand counter on screen rules it out.
     """
     from src.en.screen import in_region
 
-    width, height = task.width, task.height
-    band = [box for box in task.all_texts or [] if in_region(box, OPTION_BAND, width, height)]
-    encounter = next((box for box in band if ENCOUNTER in (box.name or "").casefold()), None)
-    if encounter is None:
+    health = any(HEALTH.match((box.name or "").strip()) and in_region(box, HEALTH_REGION, task.width, task.height)
+                 for box in task.all_texts or [])
+    if not health:
         return False
-    above = [box for box in band if box is not encounter and box.y < encounter.y
-             and abs((box.x + box.width / 2) - (encounter.x + encounter.width / 2)) < 0.15 * width]
-    title = max(above, key=lambda box: box.y, default=encounter)
+    return utils_sortie is None or utils_sortie._read_hand_count(task) is None
+
+
+def handle_story_event_option(task, utils_sortie=None):
+    """Press the step a story walk offers.
+
+    Args:
+        task: The running task, whose `all_texts` is the current screen.
+        utils_sortie: The Sortie module, for its hand counter, looked up when not given.
+
+    Returns:
+        True when an option was pressed.
+    """
+    from src.en.screen import in_region
+
+    utils_sortie = utils_sortie or loaded("utils_sortie")
+    band = [box for box in task.all_texts or [] if in_region(box, OPTION_BAND, task.width, task.height)]
+    if not band or len(band) > MAX_OPTION_LINES:
+        return False
+    encounter = next((box for box in band if ENCOUNTER in (box.name or "").casefold()), None)
+    if encounter is None and not on_story_walk(task, utils_sortie):
+        return False
+    # The option's first line is its title; an encounter line sits under it.
+    title = min(band, key=lambda box: box.y)
     last = getattr(task, OPTION_PRESSED, None)
     if last and last[0] == title.name and time.monotonic() - last[1] < OPTION_COOLDOWN:
         return False
-    task.log_info(f"story walk offers '{title.name}' ({encounter.name}), pressing it")
+    task.log_info(f"story walk offers {[box.name for box in band]}, pressing '{title.name}'")
     task.click_box(title)
     setattr(task, OPTION_PRESSED, (title.name, time.monotonic()))
     task.sleep(1)
