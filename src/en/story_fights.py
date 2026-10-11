@@ -33,6 +33,10 @@ CARDS_LEFT_CANCELLED = "_en_story_cards_left_cancelled"
 ANCHOR = "handle_battle_auto_check"
 SORTIE_PLAYER = "handle_battle_page"
 SORTIE_OFFER = "handle_battle_card_choice"
+# A card that asks for cards from the hand ("Select 1 card(s) to Exhaust." - read live as 请选择1张卡牌, the
+# catalog's neutral form) left the fight waiting: only Sortie's list has upstream's hand picker. It picks at random,
+# as it does in Sortie - the neutral caption no longer says whether the card is kept or lost.
+SORTIE_HAND_PICK = "handle_battle_hand_select"
 FINISH_TURN = "finishturn"
 FINISH_TURN_REGION = (0.844, 0.782, 0.998, 0.990)
 # Held on the task.
@@ -108,6 +112,9 @@ def handle_story_fight_without_auto(task, utils_sortie=None, now=None):
     """Run `taking_over`, so that a fault in it costs this frame and not the whole Story run."""
     try:
         if answer_cards_left(task, time.monotonic() if now is None else now):
+            return True
+        hand_pick = sortie_handler(SORTIE_HAND_PICK)
+        if hand_pick is not None and hand_pick(task):
             return True
         return taking_over(task, utils_sortie, now)
     except Exception as error:

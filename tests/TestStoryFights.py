@@ -43,7 +43,8 @@ class TestStoryFights(unittest.TestCase):
         self.played = []
         player = lambda task: self.played.append(1) or True  # noqa: E731
         offer = lambda task: False  # noqa: E731
-        handlers = {story_fights.SORTIE_PLAYER: player, story_fights.SORTIE_OFFER: offer}
+        handlers = {story_fights.SORTIE_PLAYER: player, story_fights.SORTIE_OFFER: offer,
+                    story_fights.SORTIE_HAND_PICK: lambda task: False}
         found = patch.object(story_fights, "sortie_handler", lambda name: handlers.get(name))
         found.start()
         self.addCleanup(found.stop)
@@ -130,6 +131,16 @@ class TestCardsLeft(unittest.TestCase):
     def test_without_the_question_nothing_happens(self):
         task = CardsLeftTask([FakeBox("确认", 0.667, 0.604)])
         self.assertFalse(story_fights.answer_cards_left(task, 0))
+
+
+class TestHandPick(unittest.TestCase):
+    def test_a_hand_pick_prompt_goes_to_upstreams_picker(self):
+        picked = []
+        handlers = {story_fights.SORTIE_HAND_PICK: lambda task: picked.append(1) or True}
+        task = CardsLeftTask([FakeBox("请选择1张卡牌", 0.517, 0.11), FakeBox("0/1", 0.499, 0.169)])
+        with patch.object(story_fights, "sortie_handler", lambda name: handlers.get(name)):
+            self.assertTrue(handle_story_fight_without_auto(task, Fight().module, now=0))
+        self.assertEqual(picked, [1])
 
 
 class TestNeverStopsTheRun(unittest.TestCase):
