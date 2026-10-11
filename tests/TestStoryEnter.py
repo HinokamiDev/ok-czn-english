@@ -228,9 +228,17 @@ class TestNextChapter(unittest.TestCase):
 
     def test_a_finished_map_moves_on(self):
         from src.en.story_enter import handle_next_chapter
-        task = MapTask(list(self.LIVE))
+        task = MapTask(list(self.LIVE) + [FakeBox("Chapter 2", 0.606, 0.04)])
         self.assertTrue(handle_next_chapter(task))
-        self.assertEqual(task.clicked, ["Desert Kingdom Ruins"])
+        self.assertEqual(task.clicked, ["Chapter 2"])
+
+    def test_without_the_tab_the_arrow_is_pressed(self):
+        from src.en.story_enter import NEXT_CHAPTER_ARROW, handle_next_chapter
+        task = MapTask(list(self.LIVE))
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertTrue(handle_next_chapter(task))
+        self.assertEqual(pressed, [NEXT_CHAPTER_ARROW])
 
     def test_a_stage_still_to_enter_comes_first(self):
         from src.en.story_enter import handle_next_chapter

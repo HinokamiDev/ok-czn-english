@@ -77,6 +77,10 @@ NEXT_CHAPTER_NAME_REGION = (0.65, 0.50, 0.97, 0.58)
 NEXT_CHAPTER_PRESSED = "_en_story_next_chapter_pressed"
 STAGE_ENTRANCES = ("enterstory", "enterbattle")
 MAP_REGION = (0.085, 0.124, 0.995, 0.874)
+# The chapter's name is only a label - pressing it did nothing live, seven times. The tab of that chapter along the
+# top ("Chapter 2" at (0.606, 0.04)) is pressed instead, or the arrow beside the name when no tab shows it.
+CHAPTER_TABS_REGION = (0.25, 0.0, 0.75, 0.08)
+NEXT_CHAPTER_ARROW = (0.961, 0.503)
 _magnifier = None
 
 _patched = False
@@ -328,8 +332,15 @@ def handle_next_chapter(task, utils_sortie=None):
     last = getattr(task, NEXT_CHAPTER_PRESSED, None)
     if last and time.monotonic() - last < OPTION_COOLDOWN:
         return False
-    task.log_info(f"no stage left on this map, moving on to chapter {number.name.strip()} '{name.name.strip()}'")
-    task.click_box(name)
+    wanted = f"chapter {int(number.name.strip())}"
+    tab = next((box for box in texts if (box.name or "").strip().casefold() == wanted
+                and in_region(box, CHAPTER_TABS_REGION, width, height)), None)
+    task.log_info(f"no stage left on this map, moving on to chapter {number.name.strip()} '{name.name.strip()}'"
+                  f" by its {'tab' if tab else 'arrow'}")
+    if tab is not None:
+        task.click_box(tab)
+    else:
+        task.click_relative(*NEXT_CHAPTER_ARROW)
     setattr(task, NEXT_CHAPTER_PRESSED, time.monotonic())
     task.sleep(2)
     return True
