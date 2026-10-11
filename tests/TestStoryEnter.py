@@ -448,6 +448,27 @@ class TestBackOnStoryMap(unittest.TestCase):
             self.assertFalse(handle_back_on_story_map(FakeTask(list(self.LIVE))))
 
 
+class TestStoryChaosRun(unittest.TestCase):
+    def run_step(self, handed_over):
+        import tempfile
+        from unittest.mock import patch
+        from src.en import autostart, status
+        from src.en.story_enter import handle_story_chaos_run
+        with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"):
+            if handed_over:
+                autostart.write_return("ChaosMode", seen=True)
+            task = FakeTask([FakeBox("1563/1563", 0.212, 0.039)])
+            task.name, task.node_status = "自动卡厄思模式", {}
+            self.assertFalse(handle_story_chaos_run(task))
+            return task.node_status
+
+    def test_a_handed_over_run_skips_the_save_target_lookup(self):
+        self.assertEqual(self.run_step(handed_over=True), {"save_target_member": True})
+
+    def test_a_chaos_run_of_its_own_still_looks_it_up(self):
+        self.assertEqual(self.run_step(handed_over=False), {})
+
+
 class TestEffectPanel(unittest.TestCase):
     LIVE = [FakeBox("Effect", 0.145, 0.05), FakeBox("Healthy", 0.686, 0.05), FakeBox("Health 1870(94.5%)", 0.82, 0.049),
             FakeBox("Chronal Ascension", 0.23, 0.236, width=250)]

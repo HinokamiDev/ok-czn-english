@@ -861,6 +861,31 @@ HEALTH_REGION_PANEL = (0.60, 0.02, 0.93, 0.09)
 PANEL_CLOSE = (0.960, 0.052)
 
 
+SAVE_TARGET_STATUS = "save_target_member"
+
+
+def handle_story_chaos_run(task, utils_sortie=None):
+    """Skip the save-target avatar lookup in a chaos stage the Story mode handed over.
+
+    The lookup taps the main combatant's portrait for the statistics page. In Act 4's story chaos stage, with the
+    story's own party, that tap opened the status-effect panel instead, which was closed and tapped open again every
+    five seconds. A story stage farms no save data, so the lookup is marked done.
+
+    Returns:
+        False always: it only changes what upstream's handler sees.
+    """
+    from src.en import autostart
+
+    status = getattr(task, "node_status", None)
+    if not isinstance(status, dict) or status.get(SAVE_TARGET_STATUS):
+        return False
+    if not (status_folder() / autostart.RETURN_NAME).exists() or getattr(task, "name", "") == "半自动剧情模式":
+        return False
+    status[SAVE_TARGET_STATUS] = True
+    task.log_info("chaos stage handed over by the Story mode, skipping the save-target avatar lookup")
+    return False
+
+
 def handle_effect_panel(task, utils_sortie=None):
     """Close the status-effect panel a stray tap opened mid-fight ("Effect" top left, "Health 1870(94.5%)" top right).
 
@@ -893,7 +918,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_story_chaos_run", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
