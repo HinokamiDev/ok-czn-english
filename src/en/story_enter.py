@@ -1158,6 +1158,13 @@ def handle_story_scene_skip(task, utils_sortie=None):
     return bool(utils_story.handle_skip_story(task))
 
 
+def handle_remote(task, utils_sortie=None):
+    """Run Claude's menu commands (`remote`) ahead of everything else while a command file waits."""
+    from src.en import remote
+
+    return remote.step(task)
+
+
 def handle_effect_panel(task, utils_sortie=None):
     """Close the status-effect panel a stray tap opened mid-fight ("Effect" top left, "Health 1870(94.5%)" top right).
 
@@ -1190,7 +1197,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
@@ -1207,7 +1214,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_map_drag_back", "handle_chapter_forward")
 
 

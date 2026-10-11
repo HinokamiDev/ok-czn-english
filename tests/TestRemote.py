@@ -1,0 +1,92 @@
+"""Check that menu commands from a file run one per frame, hold the mode off, and report what happened."""
+
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from src.en import remote, status  # noqa: E402
+from tests.fakes import FakeBox  # noqa: E402
+
+
+class FakeTask:
+    width, height = 1920, 1080
+
+    def __init__(self, boxes=()):
+        self.all_texts = list(boxes)
+        self.actions = []
+
+    def click_relative(self, x, y):
+        self.actions.append(("click", round(x, 3), round(y, 3)))
+
+    def click_box(self, box):
+        self.actions.append(("box", box.name))
+
+    def send_key(self, key):
+        self.actions.append(("key", key))
+
+    def swipe_relative(self, x1, y1, x2, y2, duration=0, settle_time=0):
+        self.actions.append(("drag", x1, y1, x2, y2, duration, settle_time))
+
+    def sleep(self, seconds):
+        pass
+
+    def log_info(self, message):
+        pass
+
+
+class TestRemote(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        path.start()
+        self.addCleanup(path.stop)
+
+    def write(self, commands):
+        remote.commands_path().write_text(json.dumps(commands), encoding="utf-8")
+
+    def result(self):
+        return json.loads(remote.result_path().read_text(encoding="utf-8"))
+
+    def test_no_file_leaves_the_mode_alone(self):
+        self.assertFalse(remote.step(FakeTask()))
+
+    def test_commands_run_one_per_frame_then_hand_back(self):
+        self.write([{"tikla": [0.5, 0.5]}, {"tus": "esc"}, {"surukle": [0.8, 0.5, 0.3, 0.5]}])
+        task = FakeTask()
+        self.assertTrue(remote.step(task))
+        self.assertEqual(task.actions, [("click", 0.5, 0.5)])
+        self.assertTrue(remote.step(task))
+        self.assertTrue(remote.step(task))
+        self.assertFalse(remote.commands_path().exists())
+        self.assertFalse(remote.step(task))
+        self.assertEqual(task.actions[1], ("key", "esc"))
+        self.assertGreater(task.actions[2][-1], 0)
+        self.assertEqual(self.result()["sonuc"], "done")
+
+    def test_a_text_is_waited_for_then_clicked(self):
+        self.write([{"tikla_metin": "Combatants", "bolge": [0.0, 0.0, 1.0, 1.0]}])
+        task = FakeTask()
+        self.assertTrue(remote.step(task))
+        self.assertEqual(task.actions, [])
+        task.all_texts = [FakeBox("Combatants", 0.7, 0.8, width=200)]
+        self.assertTrue(remote.step(task))
+        self.assertEqual(task.actions, [("box", "Combatants")])
+        self.assertEqual(self.result()["sonuc"], "done")
+
+    def test_a_text_never_seen_stops_the_list(self):
+        self.write([{"tikla_metin": "Partners", "dene": 2}, {"tus": "esc"}])
+        task = FakeTask()
+        remote.step(task)
+        remote.step(task)
+        self.assertFalse(remote.commands_path().exists())
+        self.assertIn("text not found", self.result()["sonuc"])
+        self.assertEqual(task.actions, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

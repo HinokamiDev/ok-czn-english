@@ -22,7 +22,7 @@ logger = Logger.get_logger(__name__)
 PACKAGE = "src.en"
 # The modules whose handlers are written to be reloaded: wrappers that call module-level steps, list entries that are
 # proxies. Reloading any other module is harmless but may not take effect until a restart.
-LIVE_MODULES = ("story_enter", "story_fights", "battle_choice", "snapshot", "cards")
+LIVE_MODULES = ("story_enter", "story_fights", "battle_choice", "snapshot", "cards", "remote")
 CHECK_EVERY = 2.0
 
 _stamps = {}
