@@ -25,7 +25,7 @@ $ErrorActionPreference = 'Stop'
 $env:PYTHONIOENCODING = 'UTF-8'
 
 $RepoRoot = $PSScriptRoot
-$ExpectedGitUrl = 'https://github.com/steve1316/ok-czn-english.git'
+$ExpectedGitUrl = 'https://github.com/HinokamiDev/ok-czn-english.git'
 $PyappifyActionRepo = 'https://github.com/ok-oldking/pyappify-action.git'
 
 # PowerShell hoists the trap below to the top of the scope, so this has to be set before anything can fail.
@@ -255,5 +255,5 @@ if (-not $KeepScratch) {
 Write-Host ''
 Write-Host "Built $Tag from $commit." -ForegroundColor Green
 Write-Host 'Publishing the release is still manual:' -ForegroundColor Yellow
-Write-Host "  Create the release at https://github.com/steve1316/ok-czn-english/releases/new?tag=$Tag"
+Write-Host "  Create the release at https://github.com/HinokamiDev/ok-czn-english/releases/new?tag=$Tag"
 Write-Host "  Upload every file in $OutDir"

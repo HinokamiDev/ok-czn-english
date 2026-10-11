@@ -31,7 +31,7 @@ class ChaosMode(TriggerTask):
         self.default_config['游戏语言'] = "简体中文"
         self.default_config['刷存档主战员'] = "海德玛丽"
         self.default_config['存储数据保存上限大于多少'] = 120
-        self.default_config['保留大于多少TB的存档'] = 62000
+        self.default_config['保留大于多少TB的存档'] = 0  # HinokamiDev çatalı: varsayılan olarak hiçbir kayıt silinmez
         self.default_config['领取奖励(只使用验证卡)'] = False
         # 事件任务优先级列表, 匹配到包含对应文字的选项时会优先选择
         self.default_config['任务优先级'] = ["复制","信用点增加", "移除"]

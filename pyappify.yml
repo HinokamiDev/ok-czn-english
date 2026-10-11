@@ -1,15 +1,17 @@
+# HinokamiDev çatalı: güncellemeler yalnız bu çatalın yayın etiketlerinden gelir; ayrı uygulama adı
+# (ok-czn-hd) upstream kurulumunun ayar klasörüyle karışmasın diye.
 # pyappify re-reads this file from the checked-out tree on every launch and replaces the installed profile list
 # with it, so a merge that restored upstream's China profile would ship an installer that swaps itself for
 # upstream's CN code. The release workflow asserts git_url points at this fork before it builds.
-name: "ok-czn"
+name: "ok-czn-hd"
 icon: "icons/icon.ico"
 uac: true
 profiles:
   - name: "en"
-    git_url: "https://github.com/steve1316/ok-czn-english.git"
+    git_url: "https://github.com/HinokamiDev/ok-czn-english.git"
     admin: true
     main_script: "main.py"
     requires_python: "3.12"
     requirements: "requirements.txt"
     use_pythonw: true
-    show_add_defender: true
+    show_add_defender: false

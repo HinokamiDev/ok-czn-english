@@ -136,7 +136,7 @@ jobs:
           python -m ok.update.inline_ok_requirements --tag ${{ env.TAG }}
 
       - name: Build
-        uses: ok-oldking/pyappify-action@master
+        uses: ok-oldking/pyappify-action@c5cc8fe5c9bd5c732969018694a2645474c48b7e  # master, 2026-10-11 sabitlendi
 
       - name: Add version to build filenames
         shell: pwsh

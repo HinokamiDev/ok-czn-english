@@ -1,34 +1,15 @@
 """
-配置同步模块：Supabase 匿名上传/下载热门配置
+配置同步模块（HinokamiDev çatalı: ağ bağlantısı tamamen kaldırıldı）
 
-功能：
-1. 每5分钟自动上传匿名配置 + 胜率到 Supabase
-2. 获取热门配置列表（按胜率或使用人数排序）
-3. 应用热门配置到本地
-
-不上传任何个人信息，仅上传：
-- 配置的 base64 编码
-- 胜率统计数据
-- 配置版本号
-- 匿名用户标识（机器特征的哈希）
+Upstream bu modülde yapılandırmayı, kazanma oranını ve makine kimliğinden türetilen bir
+karmayı Supabase'e yüklüyor, "热门配置" için oradan indiriyordu. Bu çatalda hiçbir şey
+gönderilmez ve indirilmez; fonksiyonlar yalnız arayüz bozulmasın diye boş döner.
 """
-import os
-import hashlib
-import platform
-import uuid
-
-import requests
 from ok import TriggerTask
 from config_io import (
     _import_config_from_text,
-    _export_config_to_text,
     refresh_task_config_widgets,
 )
-
-# Supabase 配置
-SUPABASE_URL = "https://curzwmogotwmltaprmin.supabase.co"
-SUPABASE_ANON_KEY = "sb_publishable_9Kn7mcglnMHGPEkJbxZhuA_erescsdk"
-TABLE_NAME = "configs"
 
 # 上传间隔（秒）
 UPLOAD_INTERVAL = 300  # 5分钟
@@ -45,25 +26,6 @@ def _get_version():
         return version
     except Exception:
         return "dev"
-
-
-def _get_user_hash() -> str:
-    """生成匿名用户标识：基于机器特征的一次性哈希。
-    
-    组合 MAC 地址、主机名、用户名，取 SHA256 的前 16 位作为用户标识。
-    每次启动后缓存，保证同一台机器标识不变。
-    """
-    if not hasattr(_get_user_hash, '_cache'):
-        try:
-            import subprocess
-            result = subprocess.run(['getmac'], capture_output=True, text=True, shell=True)
-            mac_line = result.stdout.split('\n')[0] if result.stdout else ''
-            mac = mac_line.split()[0] if mac_line else str(uuid.getnode())
-        except Exception:
-            mac = str(uuid.getnode())
-        raw = f"{mac}|{platform.node()}|{os.environ.get('USERNAME', 'unknown')}"
-        _get_user_hash._cache = hashlib.sha256(raw.encode()).hexdigest()[:16]
-    return _get_user_hash._cache
 
 
 def _get_win_rate(task: TriggerTask) -> float:
@@ -96,84 +58,8 @@ def _should_upload(task: TriggerTask) -> bool:
 
 
 def upload_config(task: TriggerTask, mode: str) -> bool:
-    """上传当前配置到 Supabase。
-    
-    Args:
-        task: TriggerTask 实例
-        mode: "chaos" 或 "sortie"
-    
-    Returns:
-        bool: 是否上传成功
-    """
-    if not _should_upload(task):
-        return False
-
-    config_b64 = _export_config_to_text(task)
-    if not config_b64:
-        return False
-
-    win_rate = _get_win_rate(task)
-    if win_rate < 0:
-        return False
-
-    ns = getattr(task, 'node_status', {})
-    total_rounds = ns.get('total_rounds', 0)
-
-    user_hash = _get_user_hash()
-    config_ver = _get_version()
-
-    # 读取当前模式配置的游戏语言
-    game_lang = str(task.config.get('游戏语言', '简体中文')).strip() or '简体中文'
-
-    # 出击模式记录首选主战员，卡厄思模式记录刷存档主战员
-    first_member = ""
-    if mode == "sortie":
-        try:
-            member_list = task.config.get('出战主战员优先级', [])
-            if isinstance(member_list, (list, tuple)) and len(member_list) > 0:
-                first_member = str(member_list[0]).strip()
-        except Exception:
-            pass
-    elif mode == "chaos":
-        try:
-            first_member = str(task.config.get('刷存档主战员', '') or '').strip()
-        except Exception:
-            pass
-
-    payload = {
-        "mode": mode,
-        "config_b64": config_b64,
-        "config_ver": config_ver,
-        "game_lang": game_lang,
-        "first_member": first_member,
-        "win_rate": round(win_rate, 4),
-        "total_rounds": total_rounds,
-        "user_hash": user_hash,
-    }
-
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates",
-    }
-
-    try:
-        resp = requests.post(
-            f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}",
-            json=payload,
-            headers=headers,
-            timeout=10,
-        )
-        if resp.status_code in (200, 201, 204):
-            task.log_debug(f"[配置同步] 上传成功 (mode={mode}, win_rate={win_rate:.1%})")
-            return True
-        else:
-            task.log_info(f"[配置同步] 上传失败: HTTP {resp.status_code} {resp.text[:200]}")
-            return False
-    except requests.RequestException as e:
-        task.log_info(f"[配置同步] 上传异常: {e}")
-        return False
+    """Bu çatalda yükleme yok: hiçbir veri ağa gönderilmez."""
+    return False
 
 
 def fetch_popular_configs(
@@ -182,105 +68,8 @@ def fetch_popular_configs(
     limit: int = 20,
     version: str = None,
 ) -> list:
-    """从 Supabase 获取热门配置列表。
-    
-    Args:
-        mode: "chaos" 或 "sortie"
-        sort_by: "winrate"（按平均胜率降序）或 "users"（按使用人数降序）
-        limit: 返回条数
-        version: 可选，过滤配置版本
-    
-    Returns:
-        list[dict]: 每个元素包含 config_b64, avg_win_rate, user_count 等
-    """
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-    }
-
-    # 每种语言分别获取数据，避免全局按胜率截断后小语种完全进不了客户端
-    base_params = {
-        "select": "config_b64,config_ver,game_lang,first_member,win_rate,total_rounds,user_hash",
-        "mode": f"eq.{mode}",
-        "total_rounds": f"gte.{MIN_ROUNDS}",
-        "order": "win_rate.desc",
-        "limit": limit,
-    }
-    if version:
-        base_params["config_ver"] = f"eq.{version}"
-
-    records = []
-    try:
-        for game_lang in SUPPORTED_GAME_LANGUAGES:
-            params = dict(base_params)
-            params["game_lang"] = f"eq.{game_lang}"
-            resp = requests.get(
-                f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}",
-                headers=headers,
-                params=params,
-                timeout=10,
-            )
-            if resp.status_code != 200:
-                continue
-            records.extend(resp.json())
-    except requests.RequestException:
-        return []
-
-    if not records:
-        return []
-
-    # 相同配置按游戏语言分别聚合，避免简体和繁体数据互相覆盖
-    groups = {}
-    for r in records:
-        game_lang = r.get("game_lang") or "简体中文"
-        key = (r["config_b64"], game_lang)
-        if key not in groups:
-            groups[key] = {
-                "config_b64": r["config_b64"],
-                "config_ver": r.get("config_ver", "unknown"),
-                "game_lang": game_lang,
-                "first_member": r.get("first_member", ""),
-                "win_rates": [],
-                "users": set(),
-            }
-        groups[key]["win_rates"].append(r["win_rate"])
-        groups[key]["users"].add(r["user_hash"])
-
-    # 计算聚合结果
-    result = []
-    for key, g in groups.items():
-        user_count = len(g["users"])
-        if user_count < 1:
-            continue
-        result.append({
-            "config_b64": g["config_b64"],
-            "config_ver": g["config_ver"],
-            "game_lang": g["game_lang"],
-            "first_member": g["first_member"],
-            "avg_win_rate": round(sum(g["win_rates"]) / len(g["win_rates"]), 4),
-            "user_count": user_count,
-            "total_submissions": len(g["win_rates"]),
-        })
-
-    # 排序
-    if sort_by == "users":
-        result.sort(key=lambda x: (-x["user_count"], -x["avg_win_rate"]))
-    else:  # winrate
-        result.sort(key=lambda x: (-x["avg_win_rate"], -x["user_count"]))
-
-    # 每种语言分别保留 limit 条，避免最终排序再次淘汰数据量较少的语言
-    language_counts = {}
-    limited_result = []
-    for r in result:
-        game_lang = r.get("game_lang", "简体中文")
-        count = language_counts.get(game_lang, 0)
-        if count >= limit:
-            continue
-        language_counts[game_lang] = count + 1
-        limited_result.append(r)
-
-    return limited_result
-
+    """Bu çatalda indirme yok: ağdan yapılandırma çekilmez."""
+    return []
 
 def check_upload_disabled_and_warn(task: TriggerTask) -> bool:
     """检查配置上传是否已关闭，若关闭则弹窗提示并返回 True。"""

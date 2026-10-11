@@ -715,7 +715,7 @@ def handle_data_collected(task: TriggerTask):
     box = find_box_at_point(task, 0.505, 0.111)
     if box and _get_game_text(task, '存储数据收集完成') in box.name:
         retain_threshold = _get_config_value(
-            task, '保留大于多少TB的存档', 62000
+            task, '保留大于多少TB的存档', 0
         )
         if retain_threshold <= 0:
             task.log_info("保留大于多少TB的存档设置为0，保留全部存档")
@@ -743,14 +743,15 @@ def handle_data_collected(task: TriggerTask):
                     )
                     continue
                 if archive_value is None:
+                    # HinokamiDev çatalı: değeri okunamayan kayıt asla silinmez.
                     task.log_info(
-                        f"{feature_name}未识别到存档价值，按原逻辑点击删除"
+                        f"{feature_name}未识别到存档价值，保留存档（不删除）"
                     )
-                else:
-                    task.log_info(
-                        f"{feature_name}对应存档价值{archive_value}TB不高于阈值"
-                        f"{retain_threshold}TB，点击删除"
-                    )
+                    continue
+                task.log_info(
+                    f"{feature_name}对应存档价值{archive_value}TB不高于阈值"
+                    f"{retain_threshold}TB，点击删除"
+                )
                 task.click_box(feature)
                 task.sleep(1)
                 return True

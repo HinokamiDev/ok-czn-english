@@ -7,6 +7,7 @@ import time
 
 from ok import Logger
 
+from src.en import status
 from src.en.handlers import loaded, register, replace
 from src.en.stuck import frozen_for
 
@@ -28,14 +29,17 @@ LAST_STUCK = "_en_last_stuck_notice"
 _patched = False
 
 
-def announce(task, message):
+def announce(task, message, kind=None):
     """Log a line and raise a Windows notification for it.
 
     Args:
         task: The running task, whose name titles the notification.
         message: The line to show, in English so the catalog leaves it alone.
+        kind: The `status` event this line records for an outside watcher, if any.
     """
     task.log_info(message)
+    if kind:
+        status.event(task, kind, message)
     # The title goes through the app catalog on the way out, which turns the mode's Chinese name into the one
     # shown in the app. Sending it as the title rather than the message keeps the toast readable at a glance.
     task.notification(message, title=task.name, tray=True)
@@ -66,7 +70,7 @@ def starting(original_enable, task):
     """
     def enable():
         original_enable()
-        announce(task, "Run started.")
+        announce(task, "Run started.", "basladi")
 
     return enable
 
@@ -87,7 +91,7 @@ def finishing(original):
         handled = original(task)
         rounds, wins, _ = score_of(task)
         if rounds > before:
-            announce(task, f"Run finished on floor {floor}. {wins} of {rounds} runs have succeeded.")
+            announce(task, f"Run finished on floor {floor}. {wins} of {rounds} runs have succeeded.", "kosu_bitti")
         return handled
 
     return handle_expedition_result_announcing
@@ -113,10 +117,11 @@ def stuck(original):
         if seconds < STUCK_SECONDS:
             # The screen is moving again, so the next spell gets to report straight away.
             setattr(task, LAST_STUCK, 0)
+            status.recovered(task)
             return handled
         if time.time() - getattr(task, LAST_STUCK, 0) >= REPEAT_SECONDS:
             setattr(task, LAST_STUCK, time.time())
-            announce(task, f"Stuck on the same screen for {int(seconds)}s.")
+            announce(task, f"Stuck on the same screen for {int(seconds)}s.", "takildi")
         return handled
 
     return handle_stuck_log_announcing
@@ -153,6 +158,8 @@ def apply():
         # when the mode moves to the Tasks tab. Only the modes have a run to announce.
         if isinstance(self, TriggerTask):
             self.enable = starting(self.enable, self)
+            self.run = status.watching(self.run, self)
+            self.disable = status.stopping(self.disable, self)
         original_load_config(self)
 
     BaseTask.load_config = patched_load_config

@@ -169,9 +169,9 @@ config = {
     },
     'links': { # 关于里显示的链接, 可选
             'default': {
-                'github': 'https://github.com/steve1316/ok-czn-english',
-                'share': 'https://github.com/steve1316/ok-czn-english/releases',
-                'faq': 'https://github.com/steve1316/ok-czn-english',
+                'github': 'https://github.com/HinokamiDev/ok-czn-english',
+                'share': 'https://github.com/HinokamiDev/ok-czn-english/releases',
+                'faq': 'https://github.com/HinokamiDev/ok-czn-english',
                 'sponsor': 'local'
             }
         },
