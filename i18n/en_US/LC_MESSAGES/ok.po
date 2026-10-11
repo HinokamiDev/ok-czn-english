@@ -476,8 +476,8 @@ msgstr "Curse Card"
 msgid "信用点增加"
 msgstr "Credits Gained"
 
-msgid "存储数据价值大于等于多少层级"
-msgstr "Minimum Save Data Value Tier"
+msgid "存储数据保存上限大于多少"
+msgstr "Minimum Save Data Storage Limit"
 
 msgid "保留大于多少TB的存档"
 msgstr "Keep Save Data Above This Many TB"

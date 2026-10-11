@@ -540,8 +540,8 @@ msgstr "咒术卡牌"
 msgid "信用点增加"
 msgstr "信用点增加"
 
-msgid "存储数据价值大于等于多少层级"
-msgstr "存储数据价值大于等于多少层级"
+msgid "存储数据保存上限大于多少"
+msgstr "存储数据保存上限大于多少"
 
 msgid "保留大于多少TB的存档"
 msgstr "保留大于多少TB的存档"

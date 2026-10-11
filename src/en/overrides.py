@@ -122,7 +122,7 @@ DESCRIPTIONS = {
     "第几层boss前自动暂停": "Stop and hand back control before the boss on this floor. Never Pause runs the whole map unattended.",
     "几轮后停止(0为不停止)": "Stop the bot after this many finished runs. Zero keeps it going.",
     "配置操作": "Import or export this mode's settings as a shareable code, and save or switch between local presets.",
-    "存储数据价值大于等于多少层级": "Only keep a run whose Save Data Value reaches this tier.",
+    "存储数据保存上限大于多少": "Only keep a run whose Save Data Storage Limit reaches at least this much.",
     "保留大于多少TB的存档": "Only keep save data above this size.",
     "优先使用金币治疗": "Always pay Credits for counselling at the Epione Center. Left off, a Communication Pass is spent when you have one and Credits only when you do not.",
     "进入商店": "Visit the Dellang Shop when a Safe Zone offers one. It pays to remove a card first, up to five a run, then buys from your Card Reward Priority and Equipment Slot lists.",
