@@ -15,6 +15,13 @@ from src.en import status
 logger = Logger.get_logger(__name__)
 
 FILE_NAME = "otomatik-baslat.json"
+# A running mode can hand over to another without a restart: it writes the mode wanted to `SWITCH_NAME`, and the
+# window's timer stops whatever runs and starts that one. `RETURN_NAME` asks for the Story mode to be started again
+# once nothing is running any more - how a Story chaos stage goes to the Chaos mode and comes back after its run.
+SWITCH_NAME = "mod-degistir.json"
+RETURN_NAME = "story-donus.json"
+POLL_MS = 2000
+_timer = None
 # Long enough for the game window to be found and connected, as it is when someone presses Start by hand.
 DELAY_MS = 10000
 # The class names the request may name, and the Chinese task names the status file records them under.
@@ -25,13 +32,27 @@ def request_path():
     return status.PATH.parent / FILE_NAME
 
 
-def take_request():
+def request_switch(mode, then_story=False):
+    """Ask the window to stop the running mode and start another.
+
+    Args:
+        mode: The class name of the mode to start.
+        then_story: Start the Story mode again once that mode has stopped.
+    """
+    folder = status.PATH.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / SWITCH_NAME).write_text(json.dumps({"mod": mode}), encoding="utf-8")
+    if then_story:
+        (folder / RETURN_NAME).write_text(json.dumps({"mod": "StoryMode"}), encoding="utf-8")
+
+
+def take_request(path=None):
     """Read and remove the start request.
 
     Returns:
         The mode's class name, or None when there is no valid request.
     """
-    path = request_path()
+    path = path or request_path()
     if not path.exists():
         return None
     try:
@@ -73,6 +94,37 @@ def start_requested(executor, start_controller):
     return task
 
 
+def running(executor):
+    return [task for task in executor.get_all_tasks()
+            if task.__class__.__name__ in MODES and getattr(task, "enabled", False)]
+
+
+def poll(executor, start_controller):
+    """Carry out a requested hand-over, or the return to the Story mode once nothing runs.
+
+    Returns:
+        The mode started, or None.
+    """
+    folder = status.PATH.parent
+    wanted = take_request(folder / SWITCH_NAME)
+    if wanted is None:
+        if not (folder / RETURN_NAME).exists() or running(executor):
+            return None
+        wanted = take_request(folder / RETURN_NAME)
+        if wanted is None:
+            return None
+    task = next((task for task in executor.get_all_tasks() if task.__class__.__name__ == wanted), None)
+    if task is None:
+        return None
+    for other in running(executor):
+        if other is not task:
+            logger.info(f"stopping {other.__class__.__name__} to hand over to {wanted}")
+            other.disable()
+    logger.info(f"starting {wanted} on a hand-over request")
+    start_controller.start(task)
+    return task
+
+
 def schedule():
     """Arrange for the request to be honoured once the window has had time to connect to the game."""
     try:
@@ -89,3 +141,14 @@ def schedule():
             logger.error(f"could not start the requested mode: {error}", exception=error)
 
     QTimer.singleShot(DELAY_MS, run)
+
+    def polling():
+        try:
+            poll(og.executor, og.app.start_controller)
+        except Exception as error:
+            logger.error(f"could not carry out a mode hand-over: {error}", exception=error)
+
+    global _timer
+    _timer = QTimer()
+    _timer.timeout.connect(polling)
+    _timer.start(POLL_MS)

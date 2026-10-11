@@ -3,6 +3,7 @@
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -16,6 +17,10 @@ class StoryMode:
 
 
 class ChaosMode:
+    pass
+
+
+class SortieMode:
     pass
 
 
@@ -76,6 +81,45 @@ class TestAutostart(unittest.TestCase):
         autostart.start_requested(FakeExecutor(), self.controller)
         self.assertEqual(self.controller.started, [])
         self.assertFalse(autostart.request_path().exists())
+
+
+class Mode:
+    def __init__(self, name, enabled=False):
+        self.__class__ = type(name, (Mode,), {})
+        self.enabled = enabled
+
+    def disable(self):
+        self.enabled = False
+
+
+class TestHandOver(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        path.start()
+        self.addCleanup(path.stop)
+        self.story, self.chaos = Mode("StoryMode", enabled=True), Mode("ChaosMode")
+        self.executor = types.SimpleNamespace(get_all_tasks=lambda: [self.story, self.chaos])
+        self.controller = FakeController()
+        self.controller.start = lambda task: (self.controller.started.append(task.__class__.__name__),
+                                              setattr(task, "enabled", True))
+
+    def test_story_hands_over_to_chaos_and_comes_back_after_the_run(self):
+        autostart.request_switch("ChaosMode", then_story=True)
+        autostart.poll(self.executor, self.controller)
+        self.assertEqual((self.story.enabled, self.chaos.enabled), (False, True))
+        # Still running: no return yet.
+        self.assertIsNone(autostart.poll(self.executor, self.controller))
+        self.chaos.enabled = False
+        autostart.poll(self.executor, self.controller)
+        self.assertEqual(self.controller.started, ["ChaosMode", "StoryMode"])
+        self.assertTrue(self.story.enabled)
+        self.assertIsNone(autostart.poll(self.executor, self.controller))
+
+    def test_nothing_requested_does_nothing(self):
+        self.assertIsNone(autostart.poll(self.executor, self.controller))
+        self.assertEqual(self.controller.started, [])
 
 
 if __name__ == "__main__":

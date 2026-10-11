@@ -305,6 +305,35 @@ class TestMapDrag(unittest.TestCase):
         self.assertFalse(handle_map_drag(task))
 
 
+class TestObserveStage(unittest.TestCase):
+    def test_a_chaos_stage_is_entered_and_handed_to_the_chaos_mode(self):
+        import tempfile
+        from unittest.mock import patch
+        from src.en import autostart, status
+        from src.en.story_enter import handle_observe_stage
+        with tempfile.TemporaryDirectory() as folder,                 patch.object(status, "PATH", Path(folder) / "son-calisma.json"):
+            # Snapshot 20261011-203734.
+            task = MapTask([FakeBox("Chapter 3", 0.439, 0.04), FakeBox("#07", 0.479, 0.504),
+                            FakeBox("Observe", 0.567, 0.504)])
+            self.assertTrue(handle_observe_stage(task))
+            self.assertEqual(task.clicked, ["Observe"])
+            folder_path = Path(folder)
+            self.assertTrue((folder_path / autostart.SWITCH_NAME).exists())
+            self.assertTrue((folder_path / autostart.RETURN_NAME).exists())
+
+
+class TestStepFailure(unittest.TestCase):
+    def test_a_failing_step_does_not_stop_the_run(self):
+        from unittest.mock import patch
+        from src.en import story_enter
+
+        def broken(task, utils_sortie=None):
+            raise AttributeError("module has no attribute 'request_switch'")
+
+        with patch.object(story_enter, "STORY_STEPS", ("broken_step",)),                 patch.dict(story_enter.__dict__, {"broken_step": broken}):
+            self.assertFalse(story_enter.handle_story_walk_dialogue(FakeTask([]), NO_FIGHT))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

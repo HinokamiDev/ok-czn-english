@@ -95,6 +95,12 @@ NEXT_CHAPTER_ARROW = (0.961, 0.503)
 EDGE_STAGE_REGION = (0.93, 0.40, 1.0, 0.70)
 MAP_DRAG = ((0.80, 0.62), (0.30, 0.62))
 MAP_DRAG_PRESSED = "_en_story_map_drag"
+# A chaos stage on the story map is captioned "Observe" ("#07 Observe" in Chapter 3, read live at (0.567, 0.504));
+# upstream looks for the Chinese 观测, so it was never pressed. It is a Chaos run the Story mode cannot play: after
+# pressing it the run is handed to the Chaos mode, and the Story mode is started again when that run stops.
+OBSERVE = "observe"
+OBSERVE_REGION = (0.092, 0.214, 0.962, 0.792)
+OBSERVE_PRESSED = "_en_story_observe_pressed"
 _magnifier = None
 
 _patched = False
@@ -394,6 +400,34 @@ def handle_map_drag(task, utils_sortie=None):
     return True
 
 
+def handle_observe_stage(task, utils_sortie=None):
+    """Enter a chaos stage from the story map and hand its run to the Chaos mode.
+
+    Args:
+        task: The running task.
+        utils_sortie: Unused; every step takes the same arguments.
+
+    Returns:
+        True when the stage was entered.
+    """
+    from src.en import autostart
+    from src.en.screen import in_region
+
+    stage = next((box for box in task.all_texts or [] if (box.name or "").strip().casefold() == OBSERVE
+                  and in_region(box, OBSERVE_REGION, task.width, task.height)), None)
+    if stage is None:
+        return False
+    last = getattr(task, OBSERVE_PRESSED, None)
+    if last and time.monotonic() - last < 30:
+        return False
+    task.log_info("chaos stage on the story map, entering it and handing the run to the Chaos mode")
+    task.click_box(stage)
+    setattr(task, OBSERVE_PRESSED, time.monotonic())
+    task.sleep(4)
+    autostart.request_switch("ChaosMode", then_story=True)
+    return True
+
+
 def handle_story_walk_dialogue(task, utils_sortie=None):
     """Run the Story steps this fork adds, first that answers wins.
 
@@ -408,8 +442,13 @@ def handle_story_walk_dialogue(task, utils_sortie=None):
         True when a step handled the frame.
     """
     for step in STORY_STEPS:
-        if globals()[step](task, utils_sortie):
-            return True
+        # A step that fails costs this frame, not the run: a step reloaded live once called a function its
+        # not-yet-reloaded neighbour lacked, and the AttributeError stopped the Story mode.
+        try:
+            if globals()[step](task, utils_sortie):
+                return True
+        except Exception as error:
+            logger.error(f"Story step {step} failed: {error!r}", exception=error)
     return False
 
 
@@ -481,7 +520,8 @@ def walk_dialogue_step(task, utils_sortie=None):
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_next_chapter", "handle_map_drag")
+STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
+               "handle_map_drag")
 
 
 def place_after_magnifiers():
