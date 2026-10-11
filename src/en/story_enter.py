@@ -423,7 +423,9 @@ def walk_dialogue_step(task, utils_sortie=None):
         setattr(task, WALK_DIALOGUE_PRESSED, (None, time.monotonic()))
         task.sleep(0.5)
         return True
-    if not lines or len(lines) > 2:
+    # Up to four: a line wraps to three in the box ("Ah...? I don't know why, but... / it feels like the magical power
+    # has / weakened...!" stalled a walk when two was the limit).
+    if not lines or len(lines) > 4:
         return False
     # Not tied to the health bar or to being out of a fight: a walk's cut-in speaks in this box without the bar
     # ("We need to target its arms first."), and a scripted fight speaks in it mid-turn ("There's an opening near

@@ -246,6 +246,16 @@ class TestNextChapter(unittest.TestCase):
         self.assertFalse(handle_next_chapter(task))
 
 
+class TestWrappedLines(unittest.TestCase):
+    def test_a_line_wrapped_to_three_is_clicked_on(self):
+        from src.en.story_enter import handle_story_walk_dialogue
+        # Snapshot 20261011-202512.
+        task = FakeTask([FakeBox("Ah..? I don't know why, but..", 0.209, 0.169, width=330),
+                         FakeBox("it feels like the magical power has", 0.227, 0.205, width=380),
+                         FakeBox("weakened..!", 0.154, 0.239, width=150)])
+        self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
+
+
 class TestSpeechBoxFrame(unittest.TestCase):
     """Crops of live captures, put back on a 1280x720 frame: the "… …" box, a walk without one, a bright map."""
 
