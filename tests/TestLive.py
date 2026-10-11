@@ -24,7 +24,9 @@ class TestLive(unittest.TestCase):
         self.write("first")
         sys.path.insert(0, self.folder.name)
         self.addCleanup(sys.path.remove, self.folder.name)
-        self.module = importlib.import_module("livepkg.handlers_under_test")
+        # As the app imports it: with bytecode written, which the first check reads the loaded source time from.
+        with patch.object(sys, "dont_write_bytecode", False):
+            self.module = importlib.import_module("livepkg.handlers_under_test")
         self.addCleanup(sys.modules.pop, "livepkg.handlers_under_test", None)
         self.addCleanup(sys.modules.pop, "livepkg", None)
         for name, value in (("PACKAGE", "livepkg"), ("LIVE_MODULES", ("handlers_under_test",)), ("_stamps", {}),
@@ -47,6 +49,13 @@ class TestLive(unittest.TestCase):
         self.write("second", bump=5)
         importlib.invalidate_caches()
         self.assertEqual(live.check(now=200), ["handlers_under_test"])
+        self.assertEqual(entry(None), "second")
+
+    def test_an_edit_saved_before_the_first_check_is_still_loaded(self):
+        entry = live.proxy("livepkg.handlers_under_test", "handle")
+        self.write("second", bump=5)
+        importlib.invalidate_caches()
+        self.assertEqual(live.check(now=100), ["handlers_under_test"])
         self.assertEqual(entry(None), "second")
 
     def test_an_unchanged_module_is_left_alone(self):

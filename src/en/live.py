@@ -48,6 +48,27 @@ def proxy(module_name, function_name):
     return calling
 
 
+def loaded_stamp(module):
+    """The source time the module was compiled from, read from its bytecode cache.
+
+    Seeding the comparison from the file's current time instead missed an edit saved after the module was imported
+    but before the first check ran: the new time became the baseline and the old code kept running.
+
+    Returns:
+        The source modification time recorded in the .pyc, or None when there is none to read.
+    """
+    import importlib.util
+    try:
+        cached = importlib.util.cache_from_source(module.__file__)
+        with open(cached, "rb") as handle:
+            header = handle.read(16)
+    except (OSError, TypeError, ValueError, NotImplementedError):
+        return None
+    if len(header) < 16 or int.from_bytes(header[4:8], "little") != 0:
+        return None
+    return int.from_bytes(header[8:12], "little")
+
+
 def stamp_of(module):
     try:
         return os.path.getmtime(module.__file__)
@@ -77,7 +98,11 @@ def check(now=None):
         stamp = stamp_of(module)
         if stamp is None:
             continue
-        seen = _stamps.setdefault(name, stamp)
+        if name not in _stamps:
+            compiled = loaded_stamp(module)
+            # A first look: the module counts as current only if its bytecode was built from this very source.
+            _stamps[name] = stamp if compiled is None or compiled == int(stamp) else None
+        seen = _stamps[name]
         if stamp == seen:
             continue
         _stamps[name] = stamp
