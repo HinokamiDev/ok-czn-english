@@ -540,6 +540,27 @@ def handle_speech_box_anywhere(task, utils_sortie=None):
     return True
 
 
+TOUCH_TO_START = "touch to start"
+TOUCH_REGION = (0.25, 0.70, 0.75, 0.88)
+
+
+def handle_touch_to_start(task, utils_sortie=None):
+    """Tap the title screen the game opens on after a restart ("TOUCH TO START" at about (0.5, 0.8)).
+
+    Returns:
+        True when it was tapped.
+    """
+    from src.en.screen import text_in_region
+
+    title = text_in_region(task, TOUCH_TO_START, TOUCH_REGION)
+    if title is None:
+        return False
+    task.log_info("title screen, touching to start")
+    task.click_box(title)
+    task.sleep(3)
+    return True
+
+
 def handle_fork_steps(task, utils_sortie=None):
     """Run the steps this fork adds to the Chaos and Sortie modes, first that answers wins; reloadable like Story's."""
     for step in GENERAL_STEPS:
@@ -551,7 +572,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_speech_box_anywhere",)
+GENERAL_STEPS = ("handle_touch_to_start", "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
 
@@ -567,7 +588,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
                "handle_map_drag")
 
 

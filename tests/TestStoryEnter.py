@@ -346,6 +346,15 @@ class TestStepFailure(unittest.TestCase):
             self.assertFalse(story_enter.handle_story_walk_dialogue(FakeTask([]), NO_FIGHT))
 
 
+class TestTitleScreen(unittest.TestCase):
+    def test_the_title_screen_is_touched(self):
+        from src.en.story_enter import handle_fork_steps
+        task = FakeTask([FakeBox("TOUCH TO START", 0.5, 0.80, width=320), FakeBox("Repair Resources", 0.13, 0.885)])
+        task.frame = None
+        self.assertTrue(handle_fork_steps(task))
+        self.assertEqual(task.clicked, ["TOUCH TO START"])
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
