@@ -1,14 +1,16 @@
 """Check that a run speaks up when it starts, when it finishes, and when it is stuck."""
 
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.en import notify  # noqa: E402
+from src.en import notify, status  # noqa: E402
 
 
 class FakeTask:
@@ -57,6 +59,15 @@ def finishes(task, wins_it=True):
 
 
 class TestNotify(unittest.TestCase):
+    def setUp(self):
+        # `announce` records each event in the status file a watcher reads, so it is pointed at a scratch folder;
+        # left alone, every test run reported runs and stuck screens that never happened.
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        status_path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        status_path.start()
+        self.addCleanup(status_path.stop)
+
 
     def test_starting_a_run_announces_it(self):
         task = FakeTask()

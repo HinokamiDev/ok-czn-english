@@ -8,10 +8,12 @@ These run upstream's own detector rather than a stand-in for it, because the bug
 """
 
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 
@@ -21,7 +23,7 @@ sys.path.insert(0, str(REPO_ROOT / "ok_tasks"))
 
 import utils  # noqa: E402
 
-from src.en import notify, rest, stuck  # noqa: E402
+from src.en import notify, rest, status, stuck  # noqa: E402
 from tests.fakes import FakeBox  # noqa: E402
 
 # Small enough to keep the detector's resize and diff cheap, large enough to survive dividing by four.
@@ -155,6 +157,13 @@ class TestStartButtonReachesIt(unittest.TestCase):
         cls.BaseTask.load_config = cls.original_load_config
 
     def setUp(self):
+        # The start-of-run notice writes the status file a watcher reads, so it is pointed at a scratch folder;
+        # left alone, every test run announced a run that never happened to whoever was watching.
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        status_path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        status_path.start()
+        self.addCleanup(status_path.stop)
         run = self.run_order = []
 
         class FakeMode(self.TriggerTask):
