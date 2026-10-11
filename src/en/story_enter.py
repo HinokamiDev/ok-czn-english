@@ -26,9 +26,10 @@ ENTER = "进入"
 # The dialogue skip asks to be confirmed in a box across the middle of the screen. Upstream's Story `handle_confirm`
 # only looks along the bottom edge, so the box stayed up. Read live: title at (0.501, 0.314), Confirm at (0.666, 0.683).
 SKIP_QUESTION = "skip the current dialogue"
-QUESTION_REGION = (0.15, 0.22, 0.85, 0.40)
+# The box grows when it lists the scene's main characters: question at (0.5, 0.212), Confirm at (0.662, 0.786).
+QUESTION_REGION = (0.15, 0.15, 0.85, 0.40)
 CONFIRM = "确认"
-CONFIRM_REGION = (0.50, 0.60, 0.85, 0.76)
+CONFIRM_REGION = (0.50, 0.60, 0.85, 0.86)
 CONFIRM_ANCHOR = "handle_confirm"
 # Upstream's auto-dialogue check calls the toggle off below a 0.96 template match, but on the Global client the
 # switched-on toggle matches at 0.85-0.95 too, so it was pressed four times in five seconds - on, off, on, off -

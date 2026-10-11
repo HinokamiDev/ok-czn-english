@@ -83,6 +83,14 @@ class TestSkipDialogueConfirm(unittest.TestCase):
         self.assertTrue(handle_skip_dialogue_confirm(task))
         self.assertEqual(task.clicked, ["确认"])
 
+    def test_the_taller_box_with_main_characters_is_confirmed_too(self):
+        # Snapshot 20261011-212858.
+        task = FakeTask([FakeBox("Do you want to skip the current dialogue?", 0.5, 0.212, width=700),
+                         FakeBox("Main Characters", 0.501, 0.444), FakeBox("取消", 0.346, 0.784),
+                         FakeBox("确认", 0.662, 0.786)])
+        self.assertTrue(handle_skip_dialogue_confirm(task))
+        self.assertEqual(task.clicked, ["确认"])
+
     def test_without_the_question_nothing_is_pressed(self):
         task = FakeTask([FakeBox("确认", 0.666, 0.683)])
         self.assertFalse(handle_skip_dialogue_confirm(task))
