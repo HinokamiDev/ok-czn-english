@@ -31,6 +31,8 @@ FREE_ATTACK = "Magnum Shot"
 BIG_ATTACK = "Charge Launcher"
 # Spends every Action Point left rather than a fixed number.
 SPENDS_EVERYTHING = "Absolute Protection"
+# Costs nothing and, now and then, ends the fight outright.
+ESCAPE = "Fear"
 
 
 def hand(*names_in_order):
@@ -161,6 +163,10 @@ class TestEpiphany(unittest.TestCase):
         board = cards.Board(action_points=2, epiphany=JUSTICE_ATTACK)
         chosen = cards.plan(hand(BIG_ATTACK, JUSTICE_ATTACK), board)
         self.assertEqual(played(chosen), [JUSTICE_ATTACK])
+
+    def test_a_chance_to_escape_comes_before_even_the_glowing_card(self):
+        chosen = cards.plan(hand(FREE_ATTACK, JUSTICE_ATTACK, ESCAPE), cards.Board(epiphany=JUSTICE_ATTACK))
+        self.assertEqual(played(chosen)[0], ESCAPE)
 
     def test_a_glowing_curse_is_still_never_played(self):
         chosen = cards.plan(hand(CURSE, JUSTICE_ATTACK), cards.Board(epiphany=CURSE))

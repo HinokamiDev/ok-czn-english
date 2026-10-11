@@ -31,13 +31,17 @@ ATTACK_CATEGORY = "ATK"
 # forgiving guess: too low only risks a card that will not play, while too high would refuse it outright.
 ASSUMED_COST = 1
 
+# Cards whose "unexpected result" can end the fight outright, so they are tried before anything else is spent.
+ESCAPE_CARDS = frozenset({"Fear"})
+
 # Where a card sits in a turn, lowest first.
-PHASE_EPIPHANY = 0
-PHASE_FREE = 1
-PHASE_SETUP = 2
-PHASE_ATTACK = 3
-PHASE_OTHER = 4
-PHASE_SPENDS_EVERYTHING = 5
+PHASE_ESCAPE = 0
+PHASE_EPIPHANY = 1
+PHASE_FREE = 2
+PHASE_SETUP = 3
+PHASE_ATTACK = 4
+PHASE_OTHER = 5
+PHASE_SPENDS_EVERYTHING = 6
 
 # Roughly what one drawn card is worth, said in damage. A card drawn is about one more card played, and the
 # ordinary card costing one point does 100% damage, so that is the exchange rate the data itself suggests.
@@ -329,6 +333,8 @@ def phase(name, board):
     Returns:
         One of the `PHASE_` values, lowest being earliest in the turn.
     """
+    if canonical(name) in ESCAPE_CARDS:
+        return PHASE_ESCAPE
     if lit_up(name, board):
         return PHASE_EPIPHANY
     price = cost(name)
