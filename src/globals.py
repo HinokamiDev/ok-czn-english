@@ -17,11 +17,13 @@ class Globals(QObject):
         super().__init__()
         # Everything English-only lives under src/en/ so upstream's files stay untouched and merges stay clean.
         from src.en import (  # noqa: E501
-            battle, claims, dashboard, deck, desire, devices, dialogue, dice, draft, enter, equipment, events, layout,
+            battle, claims, dashboard, deck, desire, devices, dialogue, key_scancodes, dice, draft, enter, equipment, events, layout,
             log_text, memory_limit, monitors, navigation, observe, ocr_text, overrides, persona, picker, pins, rest, rewards, safe_picks, sections, shell,
             shop, shutdown, templates, notify, stuck, upload,
         )
 
+        # Before anything sends a key: the game reads keys by scan code, and ok-script sent every key as A.
+        key_scancodes.apply()
         layout.apply()
         sections.apply()
         picker.apply()
