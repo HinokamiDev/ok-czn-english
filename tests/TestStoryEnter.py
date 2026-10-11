@@ -286,6 +286,25 @@ class TestSpeechBoxFrame(unittest.TestCase):
         self.assertEqual(pressed, [BOX_CENTRE])
 
 
+class TestMapDrag(unittest.TestCase):
+    # Snapshot 20261011-203637.
+    LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.473, 0.04), FakeBox("Continued Advance", 0.212, 0.436),
+            FakeBox("#06(", 0.274, 0.503), FakeBox("#", 0.987, 0.503, width=20), FakeBox("#06-1", 0.532, 0.657)]
+
+    def test_a_stage_cut_off_on_the_right_is_dragged_into_view(self):
+        from src.en.story_enter import MAP_DRAG, handle_map_drag
+        task = MapTask(list(self.LIVE))
+        swipes = []
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0: swipes.append(((x1, y1), (x2, y2)))
+        self.assertTrue(handle_map_drag(task))
+        self.assertEqual(swipes, [MAP_DRAG])
+
+    def test_a_visible_play_button_is_entered_instead(self):
+        from src.en.story_enter import handle_map_drag
+        task = MapTask(list(self.LIVE), entrances=True)
+        self.assertFalse(handle_map_drag(task))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

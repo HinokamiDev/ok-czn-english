@@ -90,6 +90,11 @@ MAP_REGION = (0.085, 0.124, 0.995, 0.874)
 # top ("Chapter 2" at (0.606, 0.04)) is pressed instead, or the arrow beside the name when no tab shows it.
 CHAPTER_TABS_REGION = (0.25, 0.0, 0.75, 0.08)
 NEXT_CHAPTER_ARROW = (0.961, 0.503)
+# A chapter's next stage can sit past the right edge of the map, its number cut off ("#" at (0.987, 0.503) in Chapter
+# 3) and its play button out of view, so nothing was entered. The map is dragged left to bring it in.
+EDGE_STAGE_REGION = (0.93, 0.40, 1.0, 0.70)
+MAP_DRAG = ((0.80, 0.62), (0.30, 0.62))
+MAP_DRAG_PRESSED = "_en_story_map_drag"
 _magnifier = None
 
 _patched = False
@@ -355,6 +360,40 @@ def handle_next_chapter(task, utils_sortie=None):
     return True
 
 
+def handle_map_drag(task, utils_sortie=None):
+    """Drag the chapter map left when the next stage is cut off at its right edge.
+
+    Args:
+        task: The running task.
+        utils_sortie: Unused; every step takes the same arguments.
+
+    Returns:
+        True when the map was dragged.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    texts = task.all_texts or []
+    on_map = any((box.name or "").strip().casefold().startswith("chapter")
+                 and in_region(box, CHAPTER_TABS_REGION, width, height) for box in texts)
+    edge = next((box for box in texts if (box.name or "").strip().startswith("#")
+                 and in_region(box, EDGE_STAGE_REGION, width, height)), None)
+    if not on_map or edge is None:
+        return False
+    search = task.box_of_screen(*MAP_REGION)
+    if any(task.find_feature(feature_name="enterstory", box=search) or []):
+        return False
+    last = getattr(task, MAP_DRAG_PRESSED, None)
+    if last and time.monotonic() - last < OPTION_COOLDOWN:
+        return False
+    task.log_info(f"next stage cut off at the map's right edge ('{edge.name.strip()}'), dragging the map left")
+    (x1, y1), (x2, y2) = MAP_DRAG
+    task.swipe_relative(x1, y1, x2, y2, duration=0.6)
+    setattr(task, MAP_DRAG_PRESSED, time.monotonic())
+    task.sleep(1)
+    return True
+
+
 def handle_story_walk_dialogue(task, utils_sortie=None):
     """Run the Story steps this fork adds, first that answers wins.
 
@@ -442,7 +481,7 @@ def walk_dialogue_step(task, utils_sortie=None):
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_next_chapter")
+STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step", "handle_next_chapter", "handle_map_drag")
 
 
 def place_after_magnifiers():
