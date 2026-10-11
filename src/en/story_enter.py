@@ -11,7 +11,7 @@ import time
 
 from ok import Logger
 
-from src.en.handlers import insert_before, loaded, register, wrap
+from src.en.handlers import each_list, insert_before, loaded, register, wrap
 from src.en.screen import text_in_region
 
 logger = Logger.get_logger(__name__)
@@ -40,7 +40,9 @@ AUTO_CHAT_TAG = "one auto-dialogue press"
 # looks for a "check" icon there, so the walk stood still. The box is pressed on its first line.
 OPTION_BAND = (0.25, 0.68, 0.75, 0.94)
 ENCOUNTER = "event encounter"
-OPTION_ANCHOR = "handle_view_event"
+# Run after upstream's magnifier handler, never before: a walk's magnifiers are all looked at before its option
+# moves the walk on, or what they hold is left behind.
+OPTION_AFTER = "handle_view_event"
 OPTION_PRESSED = "_en_story_option_pressed"
 OPTION_COOLDOWN = 5
 # Options without an encounter line look the same and stalled the walk too, so a walk screen is recognised by the
@@ -48,6 +50,15 @@ OPTION_COOLDOWN = 5
 HEALTH = re.compile(r"^\d+\s*/\s*\d+$")
 HEALTH_REGION = (0.05, 0.0, 0.45, 0.09)
 MAX_OPTION_LINES = 4
+# A story walk's magnifier is drawn at about 90% of upstream's `check` template, so the template scored 0.48 on a
+# live one and was never clicked; scaled to 0.9 it scored 0.92. Upstream's own match is tried first.
+MAGNIFIER_SOURCE = ("ok_tasks/assets/images/1.png", (1051, 477, 59, 63))
+MAGNIFIER_SCALES = (0.85, 0.9, 0.95)
+MAGNIFIER_THRESHOLD = 0.8
+MAGNIFIER_REGION = (0.084, 0.125, 0.995, 0.875)
+MAGNIFIER_PRESSED = "_en_story_magnifier_pressed"
+MAGNIFIER_TAG = "scaled magnifier"
+_magnifier = None
 
 _patched = False
 
@@ -160,6 +171,93 @@ def pressing_enter(handle_enter_stage, utils):
     return wrapped
 
 
+def magnifier_template():
+    """Cut upstream's `check` template out of its source image, once."""
+    global _magnifier
+    if _magnifier is None:
+        import cv2
+        from pathlib import Path
+
+        image = cv2.imread(str(Path(__file__).resolve().parents[2] / MAGNIFIER_SOURCE[0]))
+        x, y, w, h = MAGNIFIER_SOURCE[1]
+        _magnifier = image[y:y + h, x:x + w] if image is not None else False
+    return _magnifier if _magnifier is not False else None
+
+
+def find_magnifier(frame, region=MAGNIFIER_REGION):
+    """Find a story walk's magnifier at the sizes the client draws it.
+
+    Args:
+        frame: The BGR frame.
+        region: Where to look, in screen fractions.
+
+    Returns:
+        The magnifier's centre as screen fractions, or None.
+    """
+    import cv2
+
+    template = magnifier_template()
+    if template is None or frame is None:
+        return None
+    height, width = frame.shape[:2]
+    left, top = int(region[0] * width), int(region[1] * height)
+    area = frame[top:int(region[3] * height), left:int(region[2] * width)]
+    resolution = width / 1920
+    best = None
+    for scale in MAGNIFIER_SCALES:
+        sized = cv2.resize(template, None, fx=scale * resolution, fy=scale * resolution, interpolation=cv2.INTER_AREA)
+        if sized.shape[0] > area.shape[0] or sized.shape[1] > area.shape[1]:
+            continue
+        _, score, _, at = cv2.minMaxLoc(cv2.matchTemplate(area, sized, cv2.TM_CCOEFF_NORMED))
+        if best is None or score > best[0]:
+            best = (score, at, sized.shape)
+    if best is None or best[0] < MAGNIFIER_THRESHOLD:
+        return None
+    score, (x, y), (h, w) = best[0], best[1], best[2][:2]
+    return (left + x + w / 2) / width, (top + y + h / 2) / height
+
+
+def looking_closer(handle_view_event):
+    """Wrap upstream's magnifier handler with a match at the client's own sizes.
+
+    Args:
+        handle_view_event: The handler to wrap.
+
+    Returns:
+        The wrapped handler.
+    """
+    def wrapped(task):
+        if handle_view_event(task):
+            return True
+        found = find_magnifier(getattr(task, "frame", None))
+        if found is None:
+            return False
+        last = getattr(task, MAGNIFIER_PRESSED, None)
+        if last and abs(last[0][0] - found[0]) < 0.02 and abs(last[0][1] - found[1]) < 0.02                 and time.monotonic() - last[1] < OPTION_COOLDOWN:
+            return False
+        task.log_info(f"story walk magnifier at ({found[0]:.3f}, {found[1]:.3f}), looking at it")
+        task.click_relative(*found)
+        setattr(task, MAGNIFIER_PRESSED, (found, time.monotonic()))
+        task.sleep(0.5)
+        return True
+
+    return wrapped
+
+
+def place_after_magnifiers():
+    """Put the walk-option handler straight after the magnifier handler, in the Story list only."""
+    for module_name, handlers in each_list():
+        if module_name != "utils_story":
+            continue
+        names = [getattr(handler, "__name__", None) for handler in handlers]
+        if handle_story_event_option.__name__ in names:
+            handlers.pop(names.index(handle_story_event_option.__name__))
+            names = [getattr(handler, "__name__", None) for handler in handlers]
+        index = names.index(OPTION_AFTER) + 1 if OPTION_AFTER in names else len(handlers)
+        handlers.insert(index, handle_story_event_option)
+        logger.info(f"utils_story: {handle_story_event_option.__name__} placed at {index}, after {OPTION_AFTER}")
+
+
 def install():
     """Wrap the Story stage handler once both modules are loaded."""
     utils, utils_story = loaded("utils"), loaded("utils_story")
@@ -168,7 +266,8 @@ def install():
     wrap(utils_story, "handle_enter_stage", lambda original: pressing_enter(original, utils), TAG)
     insert_before(CONFIRM_ANCHOR, handle_skip_dialogue_confirm)
     wrap(utils_story, "handle_auto_chat", pressing_auto_chat_once, AUTO_CHAT_TAG)
-    insert_before(OPTION_ANCHOR, handle_story_event_option)
+    wrap(utils_story, "handle_view_event", looking_closer, MAGNIFIER_TAG)
+    place_after_magnifiers()
 
 
 def apply():

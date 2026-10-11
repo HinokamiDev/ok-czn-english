@@ -143,5 +143,49 @@ class TestStoryEventOption(unittest.TestCase):
         self.assertEqual(task.clicked, [])
 
 
+class TestMagnifier(unittest.TestCase):
+    def test_the_live_magnifier_is_found_at_its_drawn_size(self):
+        import cv2
+        import numpy as np
+        from src.en.story_enter import find_magnifier
+
+        crop = cv2.imread(str(Path(__file__).resolve().parent / "images" / "story_walk_magnifier.png"))
+        # Put the live crop back where it was cut from, on a full 1920x1080 frame.
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        frame[300:700, 1000:1450] = crop
+        found = find_magnifier(frame)
+        self.assertIsNotNone(found)
+        self.assertAlmostEqual(found[0], 1232 / 1920, delta=0.01)
+        self.assertAlmostEqual(found[1], 467 / 1080, delta=0.01)
+
+    def test_an_empty_frame_has_none(self):
+        import numpy as np
+        from src.en.story_enter import find_magnifier
+
+        self.assertIsNone(find_magnifier(np.zeros((1080, 1920, 3), dtype=np.uint8)))
+
+
+class TestOrder(unittest.TestCase):
+    def test_magnifiers_come_before_the_walk_option(self):
+        from src.en import story_enter
+
+        def named(name):
+            function = lambda task: False  # noqa: E731
+            function.__name__ = name
+            return function
+
+        module = types.ModuleType("utils_story")
+        module.PAGE_HANDLERS = [named("handle_skip_story"), named("handle_view_event"), named("handle_confirm")]
+        sys.modules["utils_story"] = module
+        try:
+            story_enter.place_after_magnifiers()
+            story_enter.place_after_magnifiers()
+        finally:
+            del sys.modules["utils_story"]
+        names = [handler.__name__ for handler in module.PAGE_HANDLERS]
+        self.assertEqual(names, ["handle_skip_story", "handle_view_event", "handle_story_event_option",
+                                 "handle_confirm"])
+
+
 if __name__ == "__main__":
     unittest.main()
