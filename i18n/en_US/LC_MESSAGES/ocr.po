@@ -291,6 +291,10 @@ msgstr "卡厄思战利品"
 msgid "Save Data collection complete"
 msgstr "存储数据收集完成"
 
+# From _match_storage_data_value: "存储数据" then the first number after it, read off the initial page and each Codex option.
+msgid "Save Data Storage Limit"
+msgstr "存储数据保存上限"
+
 # From handle_view_original: _get_game_text(task, "查看之前的闪光") in box.name
 msgid "See previous Epiphany"
 msgstr "查看之前的闪光"
