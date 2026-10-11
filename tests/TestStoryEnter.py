@@ -246,6 +246,36 @@ class TestNextChapter(unittest.TestCase):
         self.assertFalse(handle_next_chapter(task))
 
 
+class TestSpeechBoxFrame(unittest.TestCase):
+    """Crops of live captures, put back on a 1280x720 frame: the "… …" box, a walk without one, a bright map."""
+
+    def frame(self, name):
+        import cv2
+        import numpy as np
+        crop = cv2.imread(str(Path(__file__).resolve().parent / "images" / name))
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        frame[0:crop.shape[0], 0:crop.shape[1]] = crop
+        return frame
+
+    def test_the_box_is_seen_without_any_text(self):
+        from src.en.story_enter import speech_box_on_screen
+        self.assertTrue(speech_box_on_screen(self.frame("speech_box_dots.png")))
+
+    def test_no_box_on_a_dark_walk_or_a_bright_map(self):
+        from src.en.story_enter import speech_box_on_screen
+        self.assertFalse(speech_box_on_screen(self.frame("speech_box_none.png")))
+        self.assertFalse(speech_box_on_screen(self.frame("speech_box_none_bright.png")))
+
+    def test_an_unread_box_is_clicked_on(self):
+        from src.en.story_enter import BOX_CENTRE, handle_story_walk_dialogue
+        task = FakeTask([])
+        task.frame = self.frame("speech_box_dots.png")
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
+        self.assertEqual(pressed, [BOX_CENTRE])
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

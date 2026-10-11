@@ -64,6 +64,15 @@ MAGNIFIER_TAG = "scaled magnifier"
 WALK_DIALOGUE_REGION = (0.08, 0.11, 0.45, 0.32)
 WALK_DIALOGUE_PRESSED = "_en_story_walk_dialogue_pressed"
 WALK_DIALOGUE_COOLDOWN = 2
+# The box is also found by its frame, for lines OCR reads nothing off ("… …" stalled a walk for three minutes).
+# Measured on six live captures: with the box up its top and bottom rules stand ~30 grey levels above their band and
+# the inside stays dark; without it the rules are under 10 or the inside is bright.
+BOX_RULES = ((0.115, 0.145), (0.265, 0.295))
+BOX_SPAN = (0.10, 0.40)
+BOX_INSIDE = (0.15, 0.26)
+BOX_RULE_CONTRAST = 18
+BOX_INSIDE_DARK = 40
+BOX_CENTRE = (0.25, 0.20)
 # A finished stage is announced across the middle of the map ("01 / Warriors of the Arena / Complete", the last read
 # live at (0.499, 0.568)) and waits for a tap. Nothing in upstream's Story list answers it.
 COMPLETE = "complete"
@@ -365,6 +374,32 @@ def handle_story_walk_dialogue(task, utils_sortie=None):
     return False
 
 
+def speech_box_on_screen(frame):
+    """Say whether a walk's speech box is drawn, from its frame rather than its text.
+
+    Args:
+        frame: The BGR frame, or None.
+
+    Returns:
+        True when both rules of the box stand out and its inside is dark.
+    """
+    import numpy as np
+
+    if frame is None:
+        return False
+    height, width = frame.shape[:2]
+    # Only the box's corner of the frame is greyed, which keeps this cheap enough to run on every Story frame.
+    corner = frame[:int(0.30 * height), :int(BOX_SPAN[1] * width)]
+    grey = corner.mean(axis=2) if corner.ndim == 3 else corner.astype(float)
+    columns = slice(int(BOX_SPAN[0] * width), int(BOX_SPAN[1] * width))
+    for top, bottom in BOX_RULES:
+        rows = [grey[y, columns].mean() for y in range(int(top * height), int(bottom * height))]
+        if not rows or max(rows) - float(np.median(rows)) < BOX_RULE_CONTRAST:
+            return False
+    inside = grey[int(BOX_INSIDE[0] * height):int(BOX_INSIDE[1] * height), columns]
+    return float(inside.mean()) < BOX_INSIDE_DARK
+
+
 def walk_dialogue_step(task, utils_sortie=None):
     """Click a story walk's speech box on, line by line.
 
@@ -379,6 +414,15 @@ def walk_dialogue_step(task, utils_sortie=None):
 
     lines = [box for box in task.all_texts or []
              if in_region(box, WALK_DIALOGUE_REGION, task.width, task.height) and len((box.name or "").strip()) > 3]
+    if not lines and speech_box_on_screen(getattr(task, "frame", None)):
+        last = getattr(task, WALK_DIALOGUE_PRESSED, None)
+        if last and last[0] is None and time.monotonic() - last[1] < WALK_DIALOGUE_COOLDOWN:
+            return False
+        task.log_info("speech box with no readable line, clicking on")
+        task.click_relative(*BOX_CENTRE)
+        setattr(task, WALK_DIALOGUE_PRESSED, (None, time.monotonic()))
+        task.sleep(0.5)
+        return True
     if not lines or len(lines) > 2:
         return False
     # Not tied to the health bar or to being out of a fight: a walk's cut-in speaks in this box without the bar
