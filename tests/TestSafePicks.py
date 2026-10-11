@@ -264,8 +264,11 @@ class TestAsking(unittest.TestCase):
         wrapped = handler()
         with EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
             wrapped(task)
-            safe_picks.time.sleep(0.01)
-            wrapped(task)
+            # Moved on rather than slept past: Windows ticks the monotonic clock every ~16ms, so a short sleep
+            # could leave it unchanged and the timeout unreached.
+            later = safe_picks.time.monotonic() + 1
+            with patch.object(safe_picks.time, "monotonic", return_value=later):
+                wrapped(task)
         self.assertEqual((screen.clicks, task.paused), ([], 1))
         self.assertIsNone(getattr(task, ASKING))
 
