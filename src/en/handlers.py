@@ -161,7 +161,8 @@ def replace(original_name, replacement):
     changed = 0
     for module_name, handlers in each_list():
         for index, handler in enumerate(handlers):
-            if handler is replacement:
+            # A wrapper around the replacement - `claims.py` puts one on every handler - is the replacement in place.
+            if handler is replacement or getattr(handler, "__wrapped__", None) is replacement:
                 break
             if getattr(handler, "__name__", None) == original_name:
                 handlers[index] = replacement
