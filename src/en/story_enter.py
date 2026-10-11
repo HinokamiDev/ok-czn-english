@@ -815,13 +815,16 @@ def speech_box_on_screen(frame):
     corner = frame[:int(0.30 * height), :int(BOX_SPAN[1] * width)]
     grey = corner.mean(axis=2) if corner.ndim == 3 else corner.astype(float)
     columns = slice(int(BOX_SPAN[0] * width), int(BOX_SPAN[1] * width))
+    ruled = True
     for top, bottom in BOX_RULES:
         rows = [grey[y, columns].mean() for y in range(int(top * height), int(bottom * height))]
         if not rows or max(rows) - float(np.median(rows)) < BOX_RULE_CONTRAST:
-            return False
-    inside = grey[int(BOX_INSIDE[0] * height):int(BOX_INSIDE[1] * height), columns]
-    if float(inside.mean()) < BOX_INSIDE_DARK:
-        return True
+            ruled = False
+            break
+    if ruled:
+        inside = grey[int(BOX_INSIDE[0] * height):int(BOX_INSIDE[1] * height), columns]
+        if float(inside.mean()) < BOX_INSIDE_DARK:
+            return True
     return dark_band_on_bright_scene(grey, columns, height)
 
 
