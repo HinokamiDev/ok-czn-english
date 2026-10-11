@@ -1,14 +1,14 @@
-"""Stop the Dellang shop spending refreshes on a shelf the run cannot afford.
+"""Stop the Dellang shop spending refreshes it cannot use, and let it read a shelf name the client wraps.
 
 The shop's refresh is free, so `handle_shop` takes it whenever nothing on the shelf matches the user's
-priority lists. That is right with money in hand and wrong without: no reroll can produce something the run
-can pay for, so every refresh in that state is dead time.
+priority lists - dead time when no reroll could produce something the run can pay for. The shelf also wraps
+long names onto two lines, which upstream glues in OCR order ("JudgmentInstant"), so no name ever matched them.
 """
 
 from ok import Logger
 
 from src.en.handlers import loaded, register, standing_in, wrap
-from src.en.screen import text_in_region
+from src.en.screen import lines_in, text_in_region
 from src.en.state import GEAR, say_once
 
 logger = Logger.get_logger(__name__)
@@ -23,8 +23,9 @@ SHOP_FLOOR = 29
 REFRESH_REGION = (0.012, 0.892, 0.258, 0.979)
 # The caption on that button. `ocr.po` already rewrites the client's "Free" into this literal.
 FREE = "免费"
-# Names this change in the shared record of what a function already carries.
+# Name each change in the shared record of what a function already carries.
 TAG = "shop floor"
+NAMES_TAG = "whole shelf names"
 
 _patched = False
 
@@ -73,6 +74,24 @@ def refusing_free_refresh(handler, credit_of):
     return wrapped
 
 
+def reading_names_whole(handler, utils):
+    """Wrap `handle_shop` so a shelf name wrapped onto two lines is read top line first, with a space between.
+
+    Args:
+        handler: The handler to wrap, upstream's or another patch's.
+        utils: The loaded `utils` module, whose `_get_region_text` the handler resolves through.
+
+    Returns:
+        The wrapped handler.
+    """
+    def wrapped(task):
+        # Inside `handle_shop`, `_get_region_text` reads only the item names, so the swap reaches nothing else.
+        with standing_in(utils, _get_region_text=lines_in):
+            return handler(task)
+
+    return wrapped
+
+
 def install(utils):
     """Wrap the shop handler wherever the run reaches it.
 
@@ -85,12 +104,12 @@ def install(utils):
     """
     if utils is None:
         return
-    wrap(utils, "handle_shop",
-         lambda handler: refusing_free_refresh(handler, utils._get_current_credit), TAG)
+    wrap(utils, "handle_shop", lambda handler: refusing_free_refresh(handler, utils._get_current_credit), TAG)
+    wrap(utils, "handle_shop", lambda handler: reading_names_whole(handler, utils), NAMES_TAG)
 
 
 def apply():
-    """Withhold the shop's free refresh when the credits cannot use it.
+    """Withhold the shop's free refresh when the credits cannot use it, and read wrapped shelf names whole.
 
     Runs before `src/en/rewards.py`, which renames the list entry it builds - that ordering is why
     `src/globals.py` applies the two in the order it does.

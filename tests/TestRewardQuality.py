@@ -17,6 +17,7 @@ from src.en.game_quality import (  # noqa: E402
 )
 from src.en.game_quality import COMBATANT_TAG_WEIGHTS, EQUIPMENT_TAGS  # noqa: E402
 from src.en.hand_tags import HAND_TAGS  # noqa: E402
+from tests.fakes import FakeBox  # noqa: E402
 from src.en.quality import (  # noqa: E402
     CLASS_NAMES, TAGS, WORTH_TAKING, fold, index, named, one_edit_apart, slot_of, sorted_letters, suits,
     team_classes, unconfused, usable_by, worth_taking,
@@ -36,6 +37,11 @@ LOOPING_SHELF = ["售罄", "Gauntlets of", "Protection", "Reorganize", "Rally", 
                  "On sale", "200140", "105", "35", "96", "3/3", "免费", "Remaining: 5", "离开"]
 LOOPING_PURCHASE = ["购买卡牌", "请选择要接受卡牌的主战员", "无法获得", "攻击力", "Reorganize", "防御力",
                     "技能", "LEVEL", "60", "等级", "[Exhaust ]", "Draw 3", "取消", "购买", "105"]
+# A shelf card whose name the client wraps onto two lines, boxed exactly as OCR boxed it, and its Purchase Card screen.
+# The two lines overlap by a pixel, and "Judgment" alone is another card's name.
+WRAPPED_SHELF = [FakeBox("Instant", 1715, 700.5, width=98, height=33, units="pixels"),
+                 FakeBox("Judgment", 1720, 735.5, width=140, height=39, units="pixels")]
+WRAPPED_PURCHASE = ["购买卡牌", "Instant Judgment", "攻击力", "取消", "购买", "60"]
 
 
 def unusable_by(classes):
@@ -51,18 +57,12 @@ def unusable_by(classes):
                 if not set(restricted_to) & classes and CARD_RARITY.get(name) in WORTH_TAKING)
 
 
-class FakeBox:
-    """An OCR box, carrying only the text the reward code reads."""
-
-    def __init__(self, name):
-        self.name = name
-
-
 class FakeTask:
     """A task holding one OCR pass, the info table, and once the run has started the team."""
 
     def __init__(self, texts=(), team=None, info=None):
-        self.all_texts = [FakeBox(text) for text in texts]
+        # All on one row, so none reads as the two lines of one wrapped name.
+        self.all_texts = [text if isinstance(text, FakeBox) else FakeBox(text, 0.5, 0.5) for text in texts]
         self.info = dict(info or {})
         if team is not None:
             setattr(self, rewards.TEAM, team)
@@ -199,6 +199,12 @@ class TestPurchaseAgreesWithTheShop(unittest.TestCase):
         shelf = rewards.generated_list(FakeTask(LOOPING_SHELF, team=set()), rewards.CARD_KEY)
         purchase = rewards.generated_list(FakeTask(LOOPING_PURCHASE, team=set()), rewards.CARD_KEY)
         self.assertEqual(["Reorganize"], shelf)
+        self.assertEqual(shelf, purchase)
+
+    def test_a_name_wrapped_onto_two_lines_is_read_whole(self):
+        shelf = rewards.generated_list(FakeTask(WRAPPED_SHELF, team=set()), rewards.CARD_KEY)
+        purchase = rewards.generated_list(FakeTask(WRAPPED_PURCHASE, team=set()), rewards.CARD_KEY)
+        self.assertNotIn("Judgment", shelf)
         self.assertEqual(shelf, purchase)
 
 
