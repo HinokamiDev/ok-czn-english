@@ -99,10 +99,10 @@ NEXT_CHAPTER_ARROW = (0.961, 0.503)
 EDGE_STAGE_REGION = (0.93, 0.40, 1.0, 0.70)
 MAP_DRAG = ((0.80, 0.62), (0.30, 0.62))
 MAP_DRAG_PRESSED = "_en_story_map_drag"
-# Chapter 3 ended with no next-chapter label on the map at all ("#12 Epilogue II" ticked, nothing to its right). The
-# tab bar's own forward arrow (▷ at (0.746, 0.044)) is the way on then; tried at most every 30s, since a chapter the
-# game has not opened yet leaves it doing nothing.
-CHAPTER_FORWARD = (0.746, 0.044)
+# Chapter 3 ended with no next-chapter label on the map at all ("#12 Epilogue II" ticked, nothing to its right), and the
+# tab bar's ▷ did nothing. Burak: back out one screen and enter the next chapter from there - so the back button at the
+# top left (◁ at (0.042, 0.048)) is pressed, at most every 30s.
+CHAPTER_FORWARD = (0.042, 0.048)
 CHAPTER_FORWARD_PRESSED = "_en_story_chapter_forward"
 CHAPTER_FORWARD_COOLDOWN = 30
 # A chaos stage on the story map is captioned "Observe" ("#07 Observe" in Chapter 3, read live at (0.567, 0.504));
@@ -444,7 +444,7 @@ def handle_chapter_forward(task, utils_sortie=None):
     last = getattr(task, CHAPTER_FORWARD_PRESSED, None)
     if last and time.monotonic() - last < CHAPTER_FORWARD_COOLDOWN:
         return False
-    task.log_info("nothing left on this chapter's map and no next chapter shown on it, trying the tab bar's arrow")
+    task.log_info("nothing left on this chapter's map and no next chapter shown on it, backing out to pick the next")
     task.click_relative(*CHAPTER_FORWARD)
     setattr(task, CHAPTER_FORWARD_PRESSED, time.monotonic())
     task.sleep(2)
