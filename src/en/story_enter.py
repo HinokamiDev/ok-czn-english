@@ -805,6 +805,9 @@ def handle_chaos_reconnect(task, utils_sortie=None):
 
 
 STORY_LABELS = ("故事", "story")
+LEFT_MAP_FOR = "_en_left_story_map_for"
+# A chaos stage that never opened still hands back, after this long on the map.
+STILL_ON_MAP_SECONDS = 120
 STORY_LABEL_REGION = (0.0, 0.0, 0.20, 0.10)
 
 
@@ -821,14 +824,24 @@ def handle_back_on_story_map(task, utils_sortie=None):
     from src.en import autostart
     from src.en.screen import in_region
 
-    if not (status_folder() / autostart.RETURN_NAME).exists() or getattr(task, "name", "") == "半自动剧情模式":
+    marker = status_folder() / autostart.RETURN_NAME
+    if not marker.exists() or getattr(task, "name", "") == "半自动剧情模式":
         return False
     texts = task.all_texts or []
     labelled = any((box.name or "").strip().casefold() in STORY_LABELS
                    and in_region(box, STORY_LABEL_REGION, task.width, task.height) for box in texts)
     chapter = any((box.name or "").strip().casefold().startswith("chapter")
                   and in_region(box, CHAPTER_TABS_REGION, task.width, task.height) for box in texts)
+    try:
+        written = marker.stat().st_mtime
+    except OSError:
+        return False
     if not (labelled and chapter):
+        setattr(task, LEFT_MAP_FOR, written)
+        return False
+    # Only once the run has left the map for the stage: Act 4's chaos stage opened a panel over the map first, and the
+    # Chaos mode handed straight back before pressing its Enter, leaving the Story mode inside a run it cannot play.
+    if getattr(task, LEFT_MAP_FOR, None) != written and time.time() - written < STILL_ON_MAP_SECONDS:
         return False
     task.log_info("back on the story map after the chaos stage, handing back to the Story mode")
     (status_folder() / autostart.RETURN_NAME).unlink(missing_ok=True)

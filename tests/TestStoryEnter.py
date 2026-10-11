@@ -418,11 +418,26 @@ class TestBackOnStoryMap(unittest.TestCase):
         from src.en.story_enter import handle_back_on_story_map
         with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"):
             autostart.write_return("ChaosMode", seen=True)
-            task = FakeTask(list(self.LIVE))
+            task = FakeTask([FakeBox("1563/1563", 0.212, 0.039)])
             task.name = "自动卡厄思模式"
+            self.assertFalse(handle_back_on_story_map(task))
+            task.all_texts = list(self.LIVE)
             self.assertTrue(handle_back_on_story_map(task))
             self.assertFalse((Path(folder) / autostart.RETURN_NAME).exists())
             self.assertIn("StoryMode", (Path(folder) / autostart.SWITCH_NAME).read_text(encoding="utf-8"))
+
+    def test_no_hand_back_before_the_run_has_left_the_map(self):
+        # Live, Act 4: the stage's panel opened over the map and the Chaos mode handed straight back.
+        import tempfile
+        from unittest.mock import patch
+        from src.en import autostart, status
+        from src.en.story_enter import handle_back_on_story_map
+        with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"):
+            autostart.write_return("ChaosMode", seen=True)
+            task = FakeTask(list(self.LIVE))
+            task.name = "自动卡厄思模式"
+            self.assertFalse(handle_back_on_story_map(task))
+            self.assertTrue((Path(folder) / autostart.RETURN_NAME).exists())
 
     def test_nothing_without_a_hand_over(self):
         import tempfile
