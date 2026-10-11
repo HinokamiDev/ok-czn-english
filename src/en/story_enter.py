@@ -289,6 +289,23 @@ def handle_pile_pick(task, utils_sortie=None):
     return True
 
 
+def handle_fight_first(task, utils_sortie=None):
+    """Give a fight screen to the Story fight player before upstream's stage-entrance match sees it.
+
+    That match read a spot on the battlefield as a stage entrance at 0.85 and clicked it every four seconds, and the
+    fight player, further down the list, never got the frame (snapshot 20261011-232659, Act 4 Chapter 3).
+
+    Returns:
+        What the fight player returned, or False off a fight screen.
+    """
+    from src.en import story_fights
+
+    utils_sortie = utils_sortie or loaded("utils_sortie")
+    if utils_sortie is None or utils_sortie._read_hand_count(task) is None:
+        return False
+    return story_fights.handle_story_fight_without_auto(task, utils_sortie)
+
+
 def handle_walk_choice(task, utils_sortie=None):
     """Take one of several cards a story walk offers: the one a character's line points at, else the first.
 
@@ -1112,7 +1129,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_chapter_forward")
 
 

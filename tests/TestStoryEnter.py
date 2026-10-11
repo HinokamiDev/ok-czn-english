@@ -771,6 +771,21 @@ class TestPilePick(unittest.TestCase):
         self.assertFalse(handle_pile_pick(FakeTask(list(TestWalkChoice.LIVE))))
 
 
+class TestFightFirst(unittest.TestCase):
+    def test_a_fight_screen_goes_to_the_fight_player(self):
+        from unittest.mock import patch
+        from src.en import story_fights
+        from src.en.story_enter import handle_fight_first
+        seen = []
+        fighting = types.SimpleNamespace(_read_hand_count=lambda task: 5)
+        with patch.object(story_fights, "handle_story_fight_without_auto",
+                          lambda task, utils_sortie=None: seen.append(task) or True):
+            task = FakeTask([])
+            self.assertTrue(handle_fight_first(task, fighting))
+            self.assertFalse(handle_fight_first(task, types.SimpleNamespace(_read_hand_count=lambda task: None)))
+        self.assertEqual(seen, [task])
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
