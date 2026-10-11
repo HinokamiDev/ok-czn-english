@@ -192,6 +192,79 @@ def handle_story_event_option(task, utils_sortie=None):
     return True
 
 
+# A walk can offer several cards side by side ("Follow the phantom on the left / in the middle / on the right", each
+# with an "Event [Phantom's Guide] triggered" line under it). The first press only raises a card, with a check mark
+# under it that takes it; the single-option press pressed the middle one and the walk waited (snapshot 20261011-224541).
+CHOICE_BAND = (0.0, 0.68, 1.0, 0.90)
+CHOICE_COLUMN = 0.12
+CHOICE_RAISED = 0.025
+CHOICE_TAKE_Y = 0.935
+# A character's short line above the scene points the way ("It's..this way..." over the left phantom).
+HINT_REGION = (0.0, 0.30, 1.0, 0.50)
+HINT_LONGEST = 40
+CHOICE_PRESSED = "_en_story_choice_pressed"
+CHOICE_COOLDOWN = 3
+
+
+def walk_choice_columns(task):
+    """Group the choice band's lines into cards, each a list of boxes from its title down."""
+    from src.en.screen import in_region
+
+    band = sorted((box for box in task.all_texts or [] if in_region(box, CHOICE_BAND, task.width, task.height)),
+                  key=lambda box: box.y)
+    columns = []
+    for box in band:
+        middle = (box.x + box.width / 2) / task.width
+        column = next((column for column in columns if abs(column[0] - middle) < CHOICE_COLUMN), None)
+        if column is None:
+            columns.append([middle, [box]])
+        else:
+            column[1].append(box)
+    return sorted(columns, key=lambda column: column[0])
+
+
+def handle_walk_choice(task, utils_sortie=None):
+    """Take one of several cards a story walk offers: the one a character's line points at, else the first.
+
+    Returns:
+        True when a card was raised or taken.
+    """
+    from src.en.screen import in_region
+
+    utils_sortie = utils_sortie or loaded("utils_sortie")
+    fight = getattr(task, "_en_story_fight", None)
+    if fight and fight.get("playing"):
+        return False
+    columns = walk_choice_columns(task)
+    if len(columns) < 2 or not on_story_walk(task, utils_sortie):
+        return False
+    if any(word in (box.name or "").casefold() for _, boxes in columns for box in boxes for word in CARD_TYPE_WORDS):
+        return False
+    hints = [box for box in task.all_texts or [] if in_region(box, HINT_REGION, task.width, task.height)
+             and 2 < len((box.name or "").strip(" .…")) <= HINT_LONGEST]
+    if hints:
+        hint = (hints[0].x + hints[0].width / 2) / task.width
+        chosen = min(columns, key=lambda column: abs(column[0] - hint))
+    else:
+        chosen = columns[0]
+    title = chosen[1][0]
+    others = [column[1][0].y for column in columns if column is not chosen]
+    raised = all(title.y / task.height < other / task.height - CHOICE_RAISED for other in others)
+    last = getattr(task, CHOICE_PRESSED, None)
+    if last and time.monotonic() - last < CHOICE_COOLDOWN:
+        return False
+    pointed = f" (pointed at by '{hints[0].name.strip()}')" if hints else ""
+    if raised:
+        task.log_info(f"story walk card '{title.name.strip()}' raised, taking it{pointed}")
+        task.click_relative(chosen[0], CHOICE_TAKE_Y)
+    else:
+        task.log_info(f"story walk offers {len(columns)} cards, raising '{title.name.strip()}'{pointed}")
+        task.click_box(title)
+    setattr(task, CHOICE_PRESSED, time.monotonic())
+    task.sleep(1)
+    return True
+
+
 def pressing_auto_chat_once(handle_auto_chat):
     """Wrap upstream's auto-dialogue check so it presses the toggle at most once per cooldown.
 
@@ -952,7 +1025,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_chapter_forward")
 
 

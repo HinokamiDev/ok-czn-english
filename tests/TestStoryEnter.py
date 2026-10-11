@@ -621,6 +621,55 @@ class TestObserveCutOff(unittest.TestCase):
         self.assertFalse(handle_observe_cut_off(MapTask(list(TestChapterForward.LIVE))))
 
 
+class TestWalkChoice(unittest.TestCase):
+    # Snapshot 20261011-224541: the middle card raised by the single-option press, the left phantom saying the way.
+    LIVE = [FakeBox("1541/1541", 0.212, 0.038),
+            FakeBox("We followed Heidemarie to the entrance of the discord. Unlike the phantom that", 0.499, 0.208,
+                    width=1000),
+            FakeBox("guided us here, the other phantoms interfere with the choices.", 0.5, 0.248, width=900),
+            FakeBox("it's..this way...", 0.302, 0.399, width=180),
+            FakeBox("Follow the phantom in the middle", 0.497, 0.737, width=380),
+            FakeBox("Follow the phantom on the left", 0.229, 0.799, width=380),
+            FakeBox("Event [Phantom's Guide]", 0.48, 0.777, width=300), FakeBox("Event [Phantom's Guide]", 0.219, 0.837,
+                                                                                width=300),
+            FakeBox("triggered", 0.425, 0.81), FakeBox("Follow the phantom on the right", 0.755, 0.798, width=380),
+            FakeBox("Event [Phantom's Guide]", 0.739, 0.837, width=300), FakeBox("triggered", 0.165, 0.87),
+            FakeBox("triggered", 0.686, 0.87)]
+    NO_HAND = types.SimpleNamespace(_read_hand_count=lambda task: None)
+
+    def test_the_card_a_character_points_at_is_raised(self):
+        from src.en.story_enter import handle_walk_choice
+        task = FakeTask(list(self.LIVE))
+        self.assertTrue(handle_walk_choice(task, self.NO_HAND))
+        self.assertEqual(task.clicked, ["Follow the phantom on the left"])
+
+    def test_a_raised_card_is_taken_by_its_check_mark(self):
+        from src.en.story_enter import CHOICE_TAKE_Y, handle_walk_choice
+        boxes = [box for box in self.LIVE if box.name != "it's..this way..."]
+        task = FakeTask(boxes)
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((round(x, 2), y))
+        # No hint: the first card, the left one, is not the raised one, so it is raised first.
+        self.assertTrue(handle_walk_choice(task, self.NO_HAND))
+        self.assertEqual(task.clicked, ["Follow the phantom on the left"])
+        # Then the left card raised in its place: its title above the other two, which sit level.
+        raised = [FakeBox("1541/1541", 0.212, 0.038), FakeBox("Follow the phantom on the left", 0.229, 0.737, width=380),
+                  FakeBox("Event [Phantom's Guide]", 0.219, 0.777, width=300),
+                  FakeBox("Follow the phantom in the middle", 0.497, 0.799, width=380),
+                  FakeBox("Follow the phantom on the right", 0.755, 0.798, width=380)]
+        task = FakeTask(raised)
+        task.click_relative = lambda x, y: pressed.append((round(x, 2), y))
+        self.assertTrue(handle_walk_choice(task, self.NO_HAND))
+        self.assertEqual(len(pressed), 1)
+        self.assertEqual(pressed[0][1], CHOICE_TAKE_Y)
+        self.assertLess(pressed[0][0], 0.35)
+
+    def test_a_single_option_is_left_to_the_option_handler(self):
+        from src.en.story_enter import handle_walk_choice
+        task = FakeTask([FakeBox("1541/1541", 0.212, 0.038), FakeBox("Move on", 0.5, 0.80)])
+        self.assertFalse(handle_walk_choice(task, self.NO_HAND))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
