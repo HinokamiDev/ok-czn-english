@@ -369,6 +369,32 @@ class TestChaosReconnect(unittest.TestCase):
         self.assertEqual(task.clicked, ["继续"])
 
 
+class TestBackOnStoryMap(unittest.TestCase):
+    LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04), FakeBox("Toward the Abyss", 0.57, 0.493),
+            FakeBox("#07", 0.659, 0.491), FakeBox("Burning Life", 0.366, 0.631)]
+
+    def test_a_handed_over_chaos_stage_hands_back_on_the_map(self):
+        import tempfile
+        from unittest.mock import patch
+        from src.en import autostart, status
+        from src.en.story_enter import handle_back_on_story_map
+        with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"):
+            autostart.write_return("ChaosMode", seen=True)
+            task = FakeTask(list(self.LIVE))
+            task.name = "自动卡厄思模式"
+            self.assertTrue(handle_back_on_story_map(task))
+            self.assertFalse((Path(folder) / autostart.RETURN_NAME).exists())
+            self.assertIn("StoryMode", (Path(folder) / autostart.SWITCH_NAME).read_text(encoding="utf-8"))
+
+    def test_nothing_without_a_hand_over(self):
+        import tempfile
+        from unittest.mock import patch
+        from src.en import status
+        from src.en.story_enter import handle_back_on_story_map
+        with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"):
+            self.assertFalse(handle_back_on_story_map(FakeTask(list(self.LIVE))))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

@@ -593,6 +593,44 @@ def handle_chaos_reconnect(task, utils_sortie=None):
     return True
 
 
+STORY_LABELS = ("故事", "story")
+STORY_LABEL_REGION = (0.0, 0.0, 0.20, 0.10)
+
+
+def handle_back_on_story_map(task, utils_sortie=None):
+    """Hand back to the Story mode once a chaos stage it handed over has ended on the story map.
+
+    The Chaos mode counts a run as done on its own result screen. A story chaos stage returned straight to the story
+    map instead ("Toward the Abyss #07" ticked off, Chapter 3), so the Chaos mode ran on over a screen it has no use
+    for and the return to Story never came.
+
+    Returns:
+        True when the hand-back was asked for.
+    """
+    from src.en import autostart
+    from src.en.screen import in_region
+
+    if not (status_folder() / autostart.RETURN_NAME).exists() or getattr(task, "name", "") == "半自动剧情模式":
+        return False
+    texts = task.all_texts or []
+    labelled = any((box.name or "").strip().casefold() in STORY_LABELS
+                   and in_region(box, STORY_LABEL_REGION, task.width, task.height) for box in texts)
+    chapter = any((box.name or "").strip().casefold().startswith("chapter")
+                  and in_region(box, CHAPTER_TABS_REGION, task.width, task.height) for box in texts)
+    if not (labelled and chapter):
+        return False
+    task.log_info("back on the story map after the chaos stage, handing back to the Story mode")
+    (status_folder() / autostart.RETURN_NAME).unlink(missing_ok=True)
+    autostart.request_switch("StoryMode")
+    task.sleep(3)
+    return True
+
+
+def status_folder():
+    from src.en import status
+    return status.PATH.parent
+
+
 def handle_fork_steps(task, utils_sortie=None):
     """Run the steps this fork adds to the Chaos and Sortie modes, first that answers wins; reloadable like Story's."""
     for step in GENERAL_STEPS:
@@ -604,7 +642,8 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_speech_box_anywhere")
+GENERAL_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_back_on_story_map",
+                 "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
 
