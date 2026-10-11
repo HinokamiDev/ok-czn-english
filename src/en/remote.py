@@ -15,6 +15,7 @@ Commands are a JSON list in `komut.json` beside the status file, taken one per f
     {"goruntu": true}                          save a snapshot of the screen and the text read off it
     {"surukle": [x1, y1, x2, y2]}              drag, held still before letting go so nothing flings
     {"varsa": "Notice", "tikla": [x, y]}       click at a point only if this text shows within `dene` frames
+    {"yoksa": "Simulation", "tikla": [x, y]}   click at a point only if this text is not on screen (one frame)
     {"lobiye_don": true, "dene": 150}          from the title screen or the lobby's opening pop-ups to the lobby
     Any command with "istege_bagli": true is skipped, not failed, when its text never shows.
     {"tut": true}                              hold the screen: the mode keeps waiting until the file is replaced,
@@ -142,6 +143,12 @@ def run(task, command):
         if toward_lobby(task):
             return "ok"
         return "lobby not reached" if tried(task, command, LOBBY_TRIES) else "again"
+    if "yoksa" in command:
+        if find_text(task, str(command["yoksa"]), command.get("bolge")) is not None:
+            return "skipped"
+        x, y = command["tikla"]
+        task.click_relative(float(x), float(y))
+        return "ok"
     if "varsa" in command:
         if find_text(task, str(command["varsa"]), command.get("bolge")) is None:
             return "skipped" if tried(task, command) else "again"

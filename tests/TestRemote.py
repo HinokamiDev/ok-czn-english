@@ -127,5 +127,13 @@ class TestRemote(unittest.TestCase):
         self.assertEqual(task.actions, [("key", "f")])
         self.assertEqual(self.result()["sonuc"], "done")
 
+    def test_a_click_only_when_a_text_is_missing(self):
+        self.write([{"yoksa": "Simulation", "tikla": [0.042, 0.044]}, {"yoksa": "Simulation", "tikla": [0.5, 0.5]}])
+        task = FakeTask()
+        remote.step(task)
+        task.all_texts = [FakeBox("Simulation", 0.874, 0.353, width=200)]
+        remote.step(task)
+        self.assertEqual(task.actions, [("click", 0.042, 0.044)])
+
 if __name__ == "__main__":
     unittest.main()
