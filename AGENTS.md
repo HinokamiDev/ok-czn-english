@@ -81,3 +81,11 @@ Bakıcı görüntüyü ve metinleri okuyup hangi işleyicinin ekranı tanımadı
 ve `cards` modüllerinin dosya zamanına bakar; değişen modülü çalışırken yeniden yükler (kayıtta "reloaded X without
 a restart"). Bu modüllerde düzeltme kaydedilince yeniden başlatma gerekmez. Yeni modül, yeni liste girişi ya da
 `ok_tasks/` değişikliği hâlâ yeniden başlatma ister. Hatalı düzenleme yüklenmez, eski kod çalışmaya devam eder.
+
+## Gözetmen ve otomatik devam
+
+`GOZETMEN.cmd` yönetici olarak bir kez açılır (tek UAC). `%LOCALAPPDATA%\ok-czn-hd\yeniden-baslat.istek` dosyası
+oluşunca ok-czn'i kapatıp açar; dosyada `StoryMode`/`ChaosMode`/`SortieMode` yazıyorsa o mod pencere açıldıktan
+~10 sn sonra kendiliğinden başlar (`otomatik-baslat.json`, tek kullanımlık). Kayıt: `gozetmen.log`.
+Burak 11 Ekim 2026'da "takılınca kendin çöz, başlat, durmadan devam et" dedi; yeniden başlatma ve aynı modu
+sürdürme bu izinle yapılır. Oyuna tıklama, giriş/satın alma ve kayıt silme kuralları değişmedi.

@@ -183,6 +183,12 @@ def apply():
         except Exception as error:
             logger.warning(f"could not finish re-shaping the task list, the tabs may be half changed: {error}")
         original_init(self, *args, **kwargs)
+        # A restart the supervisor asked for carries on with the mode that was running, once the window is up.
+        try:
+            from src.en import autostart
+            autostart.schedule()
+        except Exception as error:
+            logger.warning(f"could not schedule a requested start: {error}")
 
     main_window.__init__ = patched_init
     _patched = True
