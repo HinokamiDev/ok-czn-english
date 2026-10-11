@@ -469,6 +469,26 @@ class TestStoryChaosRun(unittest.TestCase):
         self.assertEqual(self.run_step(handed_over=False), {})
 
 
+class TestChaosWalkMagnifier(unittest.TestCase):
+    def test_a_handed_over_chaos_stage_looks_at_the_magnifier(self):
+        import tempfile
+        import cv2
+        from unittest.mock import patch
+        from src.en import autostart, status
+        from src.en.story_enter import handle_walk_magnifier
+        frame = cv2.imread(str(Path(__file__).parent / "images" / "chaos_walk_magnifier.png"))
+        with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"):
+            task = FakeTask([])
+            task.name, task.frame, pressed = "自动卡厄思模式", frame, []
+            task.click_relative = lambda x, y: pressed.append((x, y))
+            self.assertFalse(handle_walk_magnifier(task))
+            autostart.write_return("ChaosMode", seen=True)
+            self.assertTrue(handle_walk_magnifier(task))
+        self.assertEqual(len(pressed), 1)
+        self.assertAlmostEqual(pressed[0][0], 0.879, places=2)
+        self.assertAlmostEqual(pressed[0][1], 0.561, places=2)
+
+
 class TestEffectPanel(unittest.TestCase):
     LIVE = [FakeBox("Effect", 0.145, 0.05), FakeBox("Healthy", 0.686, 0.05), FakeBox("Health 1870(94.5%)", 0.82, 0.049),
             FakeBox("Chronal Ascension", 0.23, 0.236, width=250)]

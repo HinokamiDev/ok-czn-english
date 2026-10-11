@@ -886,6 +886,23 @@ def handle_story_chaos_run(task, utils_sortie=None):
     return False
 
 
+def handle_walk_magnifier(task, utils_sortie=None):
+    """Look at a walk scene's magnifiers in a chaos stage the Story mode handed over.
+
+    Act 4's story chaos stage opened on a walk scene with two magnifiers, and the Chaos mode, which has no magnifier
+    handler, tapped the narration line for three minutes (snapshot 20261011-223222). Only in a handed-over run, so a
+    Chaos run of its own pays nothing for the template match.
+
+    Returns:
+        True when a magnifier was clicked.
+    """
+    from src.en import autostart
+
+    if not (status_folder() / autostart.RETURN_NAME).exists() or getattr(task, "name", "") == "半自动剧情模式":
+        return False
+    return magnifier_step(lambda _task: False, task)
+
+
 def handle_effect_panel(task, utils_sortie=None):
     """Close the status-effect panel a stray tap opened mid-fight ("Effect" top left, "Health 1870(94.5%)" top right).
 
@@ -918,7 +935,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_story_chaos_run", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_story_chaos_run", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
