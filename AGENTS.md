@@ -55,3 +55,7 @@ Bu klasör ok-czn'in HinokamiDev çatalıdır. Chaos Zero Nightmare'de Chaos/Sor
   yalnız bu çataldan güncellenir.
 - Defender istisnası önerisi kapalı.
 - Durum dosyası (`son-calisma.json`) eklendi.
+- Kart seçim güvenceleri (`src/en/safe_picks.py`): Epiphany Priority eşleşmezse listedeki kart için rastgele
+  seçmek yerine durur (Resume ile devam); eşleşen öncelik hedef işaretinin önüne geçer; kopyalama doğru varyantı
+  ve "Max Copies Per Card" sınırını gözetir; "Never Remove" listesi kartları silinmekten korur. Gerçek oyunda
+  henüz denenmedi; ayarlardan upstream davranışına dönülebilir.

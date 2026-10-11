@@ -18,7 +18,7 @@ class Globals(QObject):
         # Everything English-only lives under src/en/ so upstream's files stay untouched and merges stay clean.
         from src.en import (  # noqa: E501
             battle, claims, dashboard, deck, desire, devices, dialogue, dice, draft, enter, equipment, events, layout,
-            log_text, memory_limit, monitors, navigation, observe, ocr_text, overrides, persona, picker, pins, rest, rewards, sections, shell,
+            log_text, memory_limit, monitors, navigation, observe, ocr_text, overrides, persona, picker, pins, rest, rewards, safe_picks, sections, shell,
             shop, shutdown, templates, notify, stuck, upload,
         )
 
@@ -34,6 +34,9 @@ class Globals(QObject):
         navigation.apply()
         events.apply()
         enter.apply()
+        # Before pins, so its install runs first and the pin narrowing wraps it: the pick it guards is made
+        # among the pinned cards, exactly as upstream's would be.
+        safe_picks.apply()
         pins.apply()
         deck.apply()
         desire.apply()

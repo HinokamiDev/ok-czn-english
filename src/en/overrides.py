@@ -12,6 +12,7 @@ from ok.util.file import get_relative_path, read_json_file, write_json_file
 from src.en.desire import DEFAULT_FACTION, FACTIONS
 from src.en.game_data import CARDS, COMBATANTS, EQUIPMENT
 from src.en.framework import import_ui
+from src.en.safe_picks import seed as seed_safe_picks
 
 logger = Logger.get_logger(__name__)
 
@@ -88,7 +89,7 @@ DESCRIPTIONS = {
     "移除卡牌列表": "Cards to delete from the deck whenever a removal is offered.",
     "复制卡牌列表": "Cards to duplicate whenever a copy is offered.",
     "闪光卡牌列表": "Cards to spend an Epiphany on.",
-    "闪光优先级": "Epiphany targets, matched loosely against a card's name and its description, so a few keywords are enough. Order matters.",
+    "闪光优先级": "Epiphany targets, matched against a card's name and its description, so a few keywords are enough. Order matters. Start an entry with the card's name to tie it to that card.",
     "需要冥想的卡牌": "The exact cards to meditate on, each taken once per run. Nothing happens until Credits pass the figure in Meditate Above This Many Credits.",
     "卡牌奖励优先级": "Preferred cards when a reward offers a choice.",
     "获得卡牌优先级": "Preferred cards when the run offers a card to obtain.",
@@ -172,6 +173,9 @@ def reshape(task):
     # `default_config`, and an existing config simply gains it switched on.
     if PLAYS_ITS_OWN_CARDS in task.default_config:
         task.default_config[SMART_CARD_PLAY] = True
+
+    # Epiphany, copy and removal safeguards, on the modes that choose cards.
+    seed_safe_picks(task)
 
     if FARMED_COMBATANT in task.default_config:
         task.default_config[DESIRE_FACTION] = DEFAULT_FACTION
