@@ -526,6 +526,28 @@ class TestActList(unittest.TestCase):
         self.assertFalse(handle_act_list(MapTask(boxes)))
 
 
+class TestObserveCutOff(unittest.TestCase):
+    # Snapshot 20261011-222128: Act 4 Chapter 1, the chaos stage cut off on the left, #09 locked after it.
+    LIVE = [FakeBox("√", 0.042, 0.045), FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 1", 0.402, 0.04),
+            FakeBox("米I'm back", 0.442, 0.436), FakeBox("observe", 0.027, 0.505, width=80), FakeBox("#09", 0.537, 0.502)]
+
+    def test_the_map_is_dragged_right_to_the_chaos_stage(self):
+        from src.en.story_enter import MAP_DRAG_BACK, handle_chapter_forward, handle_map_drag, handle_observe_cut_off
+        task = MapTask(list(self.LIVE))
+        swiped, pressed = [], []
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0: swiped.append(((x1, y1), (x2, y2)))
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertFalse(handle_chapter_forward(task))
+        self.assertTrue(handle_observe_cut_off(task))
+        self.assertEqual((swiped, pressed), ([MAP_DRAG_BACK], []))
+        task.all_texts = list(self.LIVE) + [FakeBox("#10", 0.97, 0.5, width=20)]
+        self.assertFalse(handle_map_drag(task))
+
+    def test_a_map_without_it_is_left_alone(self):
+        from src.en.story_enter import handle_observe_cut_off
+        self.assertFalse(handle_observe_cut_off(MapTask(list(TestChapterForward.LIVE))))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

@@ -407,7 +407,7 @@ def handle_map_drag(task, utils_sortie=None):
     edge = next((box for box in texts
                  if ((box.name or "").strip().startswith("#") or len((box.name or "").strip()) >= 2)
                  and in_region(box, EDGE_STAGE_REGION, width, height)), None)
-    if not on_map or edge is None:
+    if not on_map or edge is None or observe_at_left_edge(task) is not None:
         return False
     search = task.box_of_screen(*MAP_REGION)
     if any(task.find_feature(feature_name="enterstory", box=search) or []):
@@ -439,7 +439,7 @@ def handle_chapter_forward(task, utils_sortie=None):
         return False
     if any(in_region(box, EDGE_STAGE_REGION, width, height) for box in texts):
         return False
-    if any((box.name or "").strip().casefold() == OBSERVE for box in texts):
+    if any(OBSERVE_STEM in (box.name or "").casefold() for box in texts):
         return False
     search = task.box_of_screen(*MAP_REGION)
     if any(task.find_feature(feature_name="enterstory", box=search) or []):
@@ -584,6 +584,43 @@ def handle_observe_stage(task, utils_sortie=None):
     setattr(task, OBSERVE_PRESSED, time.monotonic())
     task.sleep(4)
     autostart.request_switch("ChaosMode", then_story=True)
+    return True
+
+
+# Act 4 Chapter 1: the chaos stage stood cut off at the map's left edge ("Observe" read at (0.027, 0.505), its first
+# letter off screen) with #09 locked after it, and the run dragged the map left and backed out of the chapter instead
+# (snapshot 20261011-222128).
+OBSERVE_EDGE_REGION = (0.0, 0.35, 0.092, 0.70)
+OBSERVE_STEM = "bserve"
+MAP_DRAG_BACK = ((0.30, 0.62), (0.80, 0.62))
+MAP_DRAG_BACK_PRESSED = "_en_map_drag_back_pressed"
+
+
+def observe_at_left_edge(task):
+    """The chaos stage's label cut off at the map's left edge, if it is."""
+    from src.en.screen import in_region
+
+    return next((box for box in task.all_texts or [] if OBSERVE_STEM in (box.name or "").casefold()
+                 and in_region(box, OBSERVE_EDGE_REGION, task.width, task.height)), None)
+
+
+def handle_observe_cut_off(task, utils_sortie=None):
+    """Drag the map right when the chaos stage is cut off at its left edge, so it can be entered.
+
+    Returns:
+        True when the map was dragged.
+    """
+    stage = observe_at_left_edge(task)
+    if stage is None:
+        return False
+    last = getattr(task, MAP_DRAG_BACK_PRESSED, None)
+    if last and time.monotonic() - last < OPTION_COOLDOWN:
+        return False
+    task.log_info(f"chaos stage cut off at the map's left edge ('{stage.name.strip()}'), dragging the map right")
+    (x1, y1), (x2, y2) = MAP_DRAG_BACK
+    task.swipe_relative(x1, y1, x2, y2, duration=0.6)
+    setattr(task, MAP_DRAG_BACK_PRESSED, time.monotonic())
+    task.sleep(1)
     return True
 
 
@@ -850,7 +887,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_chapter_forward")
 
 
