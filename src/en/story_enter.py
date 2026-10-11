@@ -256,12 +256,15 @@ def handle_pile_pick(task, utils_sortie=None):
     counter = next((PILE_COUNTER.match((box.name or "").strip()) for box in texts
                     if PILE_COUNTER.match((box.name or "").strip())
                     and in_region(box, PILE_COUNTER_REGION, width, height)), None)
-    if select is None or counter is None:
+    if select is None:
         return False
     last = getattr(task, PILE_PRESSED, None)
     if last and time.monotonic() - last < PILE_COOLDOWN:
         return False
-    chosen, wanted = int(counter.group(1)), int(counter.group(2))
+    # Once a card was picked the counter read "1/1" on screen but OCR missed it (snapshot 20261011-231247), so without
+    # a counter the pick made so far stands in for it.
+    picked = bool(getattr(task, PILE_PRESSED + "_card", None))
+    chosen, wanted = (int(counter.group(1)), int(counter.group(2))) if counter else (int(picked), 1)
     cards = sorted((box for box in texts if in_region(box, PILE_CARDS_REGION, width, height)),
                    key=lambda box: (round(box.y / height, 1), box.x))
     attack = next((box for box in cards if PILE_ATTACK in (box.name or "")), None)

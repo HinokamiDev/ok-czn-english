@@ -734,6 +734,15 @@ class TestPilePick(unittest.TestCase):
         self.assertTrue(story_enter.handle_pile_pick(task))
         self.assertEqual(task.clicked, ["攻击力", "选择"])
 
+    def test_select_is_pressed_when_the_counter_goes_unread_after_the_pick(self):
+        import time
+        from src.en import story_enter
+        task = FakeTask([box for box in self.LIVE if box.name != "0/1"])
+        self.assertTrue(story_enter.handle_pile_pick(task))
+        setattr(task, story_enter.PILE_PRESSED, time.monotonic() - 10)
+        self.assertTrue(story_enter.handle_pile_pick(task))
+        self.assertEqual(task.clicked, ["攻击力", "选择"])
+
     def test_a_walk_is_not_the_pile(self):
         from src.en.story_enter import handle_pile_pick
         self.assertFalse(handle_pile_pick(FakeTask(list(TestWalkChoice.LIVE))))
