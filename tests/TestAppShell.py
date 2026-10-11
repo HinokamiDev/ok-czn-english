@@ -14,7 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from ok.task.exceptions import TaskDisabledException  # noqa: E402
 
 from src.config import config  # noqa: E402
-from src.en import dashboard, layout, shell, shutdown  # noqa: E402
+from src.en import dashboard, devices, layout, shell, shutdown  # noqa: E402
 from src.en.framework import import_ui  # noqa: E402
 
 # How many passes the fake executor allows before it stops the loop, standing in for a press of Stop.
@@ -249,6 +249,32 @@ class TestAppShell(unittest.TestCase):
     def test_the_demo_hotkey_setting_is_gone_from_the_settings_tab(self):
         names = [option.name for option in config["global_configs"]]
         self.assertNotIn("Game Hotkey Config", names)
+
+
+class TestEmulatorConnect(unittest.TestCase):
+    """Refresh dials an emulator only once something is listening on its port."""
+
+    CASES = (
+        ("a closed emulator is listed without dialling it", "127.0.0.1:5555", True, {5037}, False),
+        ("a running emulator is still dialled", "127.0.0.1:16384", True, {5037, 16384}, True),
+        ("a phone on the network is always dialled", "192.168.0.20:5555", True, set(), True),
+        ("a caller that asked not to dial is left alone", "127.0.0.1:5555", False, {5555}, False),
+        ("an unreadable port table falls back to dialling", "127.0.0.1:5555", True, None, True),
+    )
+
+    def test_only_a_listening_emulator_is_dialled(self):
+        for why, addr, asked, listening, dialled in self.CASES:
+            with self.subTest(why):
+                calls = []
+                connect = devices.dialling_only_listening(lambda manager, a, try_connect=True: calls.append((a, try_connect)),
+                                                          lambda: listening)
+                connect(object(), addr, asked)
+                self.assertEqual([(addr, dialled)], calls)
+
+    def test_running_emulators_are_found_by_name_and_reported_by_path(self):
+        processes = [types.SimpleNamespace(info={"name": "HD-Player.exe"}, exe=lambda: "C:/BlueStacks_nxt/HD-Player.exe"),
+                     types.SimpleNamespace(info={"name": "chrome.exe"}, exe=lambda: self.fail("a non-emulator's path was read"))]
+        self.assertEqual(["C:/BlueStacks_nxt/HD-Player.exe"], list(devices.emulator_exes(processes)))
 
 
 class TestIdleDashboard(unittest.TestCase):

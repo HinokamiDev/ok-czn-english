@@ -99,3 +99,11 @@ class TestUpstreamManifest(unittest.TestCase):
 
         self.assertTrue(hasattr(BaseTask, "after_init"))
         self.assertTrue(hasattr(BaseTask, "load_config"))
+
+    def test_the_framework_still_offers_the_emulator_seams(self):
+        # `devices.py` replaces the running-emulator scan and classifies by name with `is_emulator`. A rename leaves the
+        # replacement set on nothing, so Refresh quietly goes back to reading every process's command line.
+        from ok.alas.emulator_windows import Emulator, EmulatorManager
+
+        self.assertTrue(hasattr(EmulatorManager, "iter_running_emulator"))
+        self.assertTrue(Emulator.is_emulator("HD-Player.exe"))
