@@ -670,6 +670,75 @@ class TestWalkChoice(unittest.TestCase):
         self.assertFalse(handle_walk_choice(task, self.NO_HAND))
 
 
+class TestPilePick(unittest.TestCase):
+    # Snapshot 20261011-231113: "Select up to 1 card(s) to bring to hand.", 0/1.
+    LIVE = [FakeBox('Draw Pile', 0.083, 0.137),
+            FakeBox('请选择1张卡牌', 0.501, 0.11),
+            FakeBox('Hide', 0.916, 0.131),
+            FakeBox('0/1', 0.498, 0.169),
+            FakeBox('技能', 0.102, 0.297),
+            FakeBox('Hovering Metal', 0.133, 0.271),
+            FakeBox('Metal Pierce', 0.299, 0.27),
+            FakeBox('攻击力', 0.287, 0.297),
+            FakeBox('Iron Skin', 0.464, 0.269),
+            FakeBox('技能', 0.457, 0.298),
+            FakeBox('Prepare to Subdue', 0.668, 0.27),
+            FakeBox('技能', 0.641, 0.299),
+            FakeBox('Prepare to Subdue', 0.844, 0.272),
+            FakeBox('Skim', 0.818, 0.298),
+            FakeBox('90% Defense-Based', 0.3, 0.525),
+            FakeBox('Decrease Damage Taken by', 0.478, 0.527),
+            FakeBox('[ Exhaust /Finale]', 0.479, 0.506),
+            FakeBox('Draw 1Attack Card(s)', 0.652, 0.498),
+            FakeBox('Retain ]', 0.657, 0.474),
+            FakeBox('20%for 1 turn', 0.478, 0.545),
+            FakeBox('IncreaseDamage', 0.653, 0.551),
+            FakeBox('of this unit', 0.656, 0.527),
+            FakeBox('Draw 1Attack Card(s)', 0.829, 0.5),
+            FakeBox('Retain', 0.83, 0.474),
+            FakeBox('[Exhaust ]', 0.124, 0.55),
+            FakeBox('Damage × 2', 0.302, 0.55),
+            FakeBox('of this unit', 0.832, 0.527),
+            FakeBox('3 Damage Reduction', 0.126, 0.577),
+            FakeBox('5 Metallization', 0.125, 0.602),
+            FakeBox('2 Metallization', 0.301, 0.602),
+            FakeBox('1 Vulnerable', 0.302, 0.577),
+            FakeBox('Decrease up to 4 Metallization', 0.478, 0.565),
+            FakeBox('Additionally decrease Damage', 0.479, 0.586),
+            FakeBox('Amount of those cards', 0.654, 0.576),
+            FakeBox('Amount of those cards', 0.829, 0.575),
+            FakeBox('IncreaseDamage', 0.83, 0.552),
+            FakeBox('Taken by 20%for each', 0.479, 0.605),
+            FakeBox('by 80% for 1turn', 0.654, 0.602),
+            FakeBox('· by 80% for 1 turn', 0.831, 0.602),
+            FakeBox('+Trickery Striket', 0.13, 0.728),
+            FakeBox('Iceberg Cleave', 0.309, 0.73),
+            FakeBox('£', 0.4, 0.704),
+            FakeBox('Protect Us', 0.472, 0.729),
+            FakeBox('攻击力', 0.11, 0.756),
+            FakeBox('攻击力', 0.289, 0.756),
+            FakeBox('技能', 0.457, 0.756),
+            FakeBox('Garden of Secrets', 0.668, 0.729),
+            FakeBox('强化', 0.647, 0.757),
+            FakeBox('φ', 0.068, 0.793),
+            FakeBox('选择', 0.939, 0.93)]
+
+    def test_an_attack_is_picked_then_select_pressed(self):
+        import time
+        from src.en import story_enter
+        task = FakeTask(list(self.LIVE))
+        self.assertTrue(story_enter.handle_pile_pick(task))
+        self.assertEqual(task.clicked, ["攻击力"])
+        self.assertFalse(story_enter.handle_pile_pick(task))
+        setattr(task, story_enter.PILE_PRESSED, time.monotonic() - 10)
+        self.assertTrue(story_enter.handle_pile_pick(task))
+        self.assertEqual(task.clicked, ["攻击力", "选择"])
+
+    def test_a_walk_is_not_the_pile(self):
+        from src.en.story_enter import handle_pile_pick
+        self.assertFalse(handle_pile_pick(FakeTask(list(TestWalkChoice.LIVE))))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

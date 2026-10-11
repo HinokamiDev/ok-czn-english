@@ -223,6 +223,64 @@ def walk_choice_columns(task):
     return sorted(columns, key=lambda column: column[0])
 
 
+# A card mid-fight opens the draw pile to bring cards to hand: "Select up to 1 card(s) to bring to hand." (read in the
+# catalog's words), a "0/1" counter, the cards with their type under the name and Select bottom right. It hides the
+# hand counter, so the fight player took the fight for over and nothing answered it (snapshot 20261011-231113).
+PILE_TITLE = "draw pile"
+PILE_TITLE_REGION = (0.0, 0.08, 0.30, 0.20)
+PILE_COUNTER_REGION = (0.40, 0.12, 0.60, 0.22)
+PILE_COUNTER = re.compile(r"^(\d+)\s*/\s*(\d+)$")
+PILE_CARDS_REGION = (0.0, 0.22, 1.0, 0.80)
+PILE_SELECT = "选择"
+PILE_SELECT_REGION = (0.75, 0.85, 1.0, 1.0)
+PILE_ATTACK = "攻击"
+PILE_PRESSED = "_en_pile_pressed"
+PILE_COOLDOWN = 2
+
+
+def handle_pile_pick(task, utils_sortie=None):
+    """Bring cards from the draw pile to hand, attacks first, then press Select.
+
+    Returns:
+        True when a card or Select was pressed.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    texts = task.all_texts or []
+    if not any(PILE_TITLE in (box.name or "").casefold() and in_region(box, PILE_TITLE_REGION, width, height)
+               for box in texts):
+        return False
+    select = next((box for box in texts if (box.name or "").strip() == PILE_SELECT
+                   and in_region(box, PILE_SELECT_REGION, width, height)), None)
+    counter = next((PILE_COUNTER.match((box.name or "").strip()) for box in texts
+                    if PILE_COUNTER.match((box.name or "").strip())
+                    and in_region(box, PILE_COUNTER_REGION, width, height)), None)
+    if select is None or counter is None:
+        return False
+    last = getattr(task, PILE_PRESSED, None)
+    if last and time.monotonic() - last < PILE_COOLDOWN:
+        return False
+    chosen, wanted = int(counter.group(1)), int(counter.group(2))
+    cards = sorted((box for box in texts if in_region(box, PILE_CARDS_REGION, width, height)),
+                   key=lambda box: (round(box.y / height, 1), box.x))
+    attack = next((box for box in cards if PILE_ATTACK in (box.name or "")), None)
+    if chosen < wanted and cards and not getattr(task, PILE_PRESSED + "_card", None):
+        card = attack or cards[0]
+        task.log_info(f"draw pile asks for {wanted} card(s) to bring to hand, picking the one at "
+                      f"({(card.x + card.width / 2) / width:.2f}, {(card.y + card.height / 2) / height:.2f})"
+                      f"{' (an attack)' if attack else ''}")
+        task.click_box(card)
+        setattr(task, PILE_PRESSED + "_card", True)
+    else:
+        task.log_info(f"draw pile pick at {chosen}/{wanted}, pressing Select")
+        task.click_box(select)
+        setattr(task, PILE_PRESSED + "_card", False)
+    setattr(task, PILE_PRESSED, time.monotonic())
+    task.sleep(1)
+    return True
+
+
 def handle_walk_choice(task, utils_sortie=None):
     """Take one of several cards a story walk offers: the one a character's line points at, else the first.
 
@@ -1025,7 +1083,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_chapter_forward")
 
 
