@@ -97,10 +97,23 @@ class TestIntent(unittest.TestCase):
         self.assertEqual(clicks, [])
         self.assertTrue(any("neither keep nor discard" in line for line in task.logged))
 
+    def test_names_read_differently_each_frame_still_settle(self):
+        task = FakeTask(prompt="Select an attribute.")
+        offers = [[{"name": name, "x": x, "y": 0.33} for name, x in zip(names, (0.245, 0.508, 0.757))]
+                  for names in (("Archetype:", "Archetype: ∆", "Archetype:"), ("Archetype:", "Archetype:", "Archetype: ["))]
+        clicks = []
+        for offer in offers:
+            utils, found = fake_utils(offer)
+            handle_battle_card_choice(task, utils)
+            clicks += found
+        self.assertEqual(len(clicks), 1)
+
     def test_intent_reading(self):
         self.assertEqual(intent_of("select a card to draw"), "keep")
         self.assertEqual(intent_of("choose a card to discard"), "discard")
-        self.assertIsNone(intent_of("select a card"))
+        self.assertEqual(intent_of("select an attribute."), "keep")
+        self.assertEqual(intent_of("select 1 card to discard"), "discard")
+        self.assertIsNone(intent_of("tap and hold the card"))
 
 
 if __name__ == "__main__":

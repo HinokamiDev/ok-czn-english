@@ -29,6 +29,8 @@ PAGE = "battle card choice"
 PROMPT_ABOVE, PROMPT_BELOW = 0.22, 0.84
 DISCARD_WORDS = ("discard",)
 KEEP_WORDS = ("draw", "hand", "obtain", "acquire")
+# A prompt that only asks for a choice ("Select an attribute." over three Archetype cards) keeps what it takes.
+CHOOSE_WORDS = ("select", "choose")
 
 _patched = False
 
@@ -76,6 +78,8 @@ def intent_of(prompt):
     if discard and not keep:
         return "discard"
     if keep and not discard:
+        return "keep"
+    if not discard and any(word in prompt for word in CHOOSE_WORDS):
         return "keep"
     return None
 
@@ -126,9 +130,12 @@ def handle_battle_card_choice(task, utils=None):
         setattr(task, LAST_OFFER, None)
         return False
     names = [card["name"] for card in offer]
-    if getattr(task, LAST_OFFER, None) != names:
+    # Where the cards sit, not what they are called: OCR read one offer as "Archetype:", "Archetype: ∆" and
+    # "Archetype: [" from frame to frame, so a name list never repeated and the pick never came.
+    places = [round(card["x"], 2) for card in offer]
+    if getattr(task, LAST_OFFER, None) != places:
         # Seen once: wait a frame, so a card sweeping across the screen is not taken for an offer.
-        setattr(task, LAST_OFFER, names)
+        setattr(task, LAST_OFFER, places)
         return True
     prompt = prompt_of(task)
     intent = intent_of(prompt)
