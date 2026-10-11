@@ -193,6 +193,21 @@ class TestWalkDialogue(unittest.TestCase):
         self.assertEqual(task.clicked, ["There's an opening near the head!"])
 
 
+class TestStageComplete(unittest.TestCase):
+    def test_the_complete_banner_is_tapped(self):
+        from src.en.story_enter import handle_story_walk_dialogue
+        # Snapshot 20261011-201125.
+        task = FakeTask([FakeBox("故事", 0.106, 0.048), FakeBox("01", 0.501, 0.375),
+                         FakeBox("Warriors of the Arena", 0.501, 0.5, width=300), FakeBox("Complete", 0.499, 0.568)])
+        self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
+        self.assertEqual(task.clicked, ["Complete"])
+
+    def test_complete_inside_a_sentence_is_not_the_banner(self):
+        from src.en.story_enter import handle_stage_complete
+        task = FakeTask([FakeBox("Quest Complete soon", 0.5, 0.56)])
+        self.assertFalse(handle_stage_complete(task))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter

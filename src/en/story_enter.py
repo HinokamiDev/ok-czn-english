@@ -64,6 +64,11 @@ MAGNIFIER_TAG = "scaled magnifier"
 WALK_DIALOGUE_REGION = (0.08, 0.11, 0.45, 0.32)
 WALK_DIALOGUE_PRESSED = "_en_story_walk_dialogue_pressed"
 WALK_DIALOGUE_COOLDOWN = 2
+# A finished stage is announced across the middle of the map ("01 / Warriors of the Arena / Complete", the last read
+# live at (0.499, 0.568)) and waits for a tap. Nothing in upstream's Story list answers it.
+COMPLETE = "complete"
+COMPLETE_REGION = (0.35, 0.52, 0.65, 0.62)
+COMPLETE_PRESSED = "_en_story_complete_pressed"
 _magnifier = None
 
 _patched = False
@@ -264,7 +269,51 @@ def magnifier_step(handle_view_event, task):
     return True
 
 
+def handle_stage_complete(task, utils_sortie=None):
+    """Tap away the banner announcing a finished stage.
+
+    Args:
+        task: The running task, whose `all_texts` is the current screen.
+        utils_sortie: Unused; every step takes the same arguments.
+
+    Returns:
+        True when the banner was tapped.
+    """
+    from src.en.screen import text_in_region
+
+    banner = text_in_region(task, COMPLETE, COMPLETE_REGION)
+    if banner is None or (banner.name or "").strip().casefold() != COMPLETE:
+        return False
+    last = getattr(task, COMPLETE_PRESSED, None)
+    if last and time.monotonic() - last < OPTION_COOLDOWN:
+        return False
+    task.log_info("stage complete banner, tapping it away")
+    task.click_box(banner)
+    setattr(task, COMPLETE_PRESSED, time.monotonic())
+    task.sleep(1)
+    return True
+
+
 def handle_story_walk_dialogue(task, utils_sortie=None):
+    """Run the Story steps this fork adds, first that answers wins.
+
+    This is the entry the Story list holds (as a proxy), so a step added to `STORY_STEPS` takes effect on a live
+    reload, without a new list entry and so without a restart. Kept under its first name for that reason.
+
+    Args:
+        task: The running task.
+        utils_sortie: The Sortie module, for its hand counter, looked up when not given.
+
+    Returns:
+        True when a step handled the frame.
+    """
+    for step in STORY_STEPS:
+        if globals()[step](task, utils_sortie):
+            return True
+    return False
+
+
+def walk_dialogue_step(task, utils_sortie=None):
     """Click a story walk's speech box on, line by line.
 
     Args:
@@ -292,6 +341,10 @@ def handle_story_walk_dialogue(task, utils_sortie=None):
     setattr(task, WALK_DIALOGUE_PRESSED, (line.name, time.monotonic()))
     task.sleep(0.5)
     return True
+
+
+# Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
+STORY_STEPS = ("handle_stage_complete", "walk_dialogue_step")
 
 
 def place_after_magnifiers():
