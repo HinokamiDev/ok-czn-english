@@ -19,7 +19,7 @@ class Globals(QObject):
         from src.en import (  # noqa: E501
             battle, battle_choice, claims, dashboard, deck, desire, devices, dialogue, key_scancodes, dice, draft, enter, equipment, events, layout,
             log_text, memory_limit, monitors, navigation, observe, ocr_text, overrides, persona, picker, pins, rest, rewards, safe_picks, sections, shell,
-            shop, shutdown, story_enter, templates, notify, stuck, upload,
+            shop, shutdown, story_enter, story_fights, templates, notify, stuck, upload,
         )
 
         # Before anything sends a key: the game reads keys by scan code, and ok-script sent every key as A.
@@ -54,6 +54,7 @@ class Globals(QObject):
         rewards.apply()
         battle.apply()
         battle_choice.apply()
+        story_fights.apply()
         observe.apply()
         dialogue.apply()
         overrides.apply()
