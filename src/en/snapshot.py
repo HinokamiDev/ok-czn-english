@@ -29,7 +29,8 @@ THUMBNAIL = (64, 36)
 # The largest width saved, to keep each snapshot a few hundred kilobytes.
 SAVED_WIDTH = 1280
 FOLDER_NAME = "takilma"
-KEEP = 20
+# Kept for long: the captures are the test corpus every later fix is checked against.
+KEEP = 300
 # Held on the task.
 LAST_PICTURE = "_en_snapshot_picture"
 STILL_SINCE = "_en_snapshot_still_since"

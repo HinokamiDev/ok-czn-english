@@ -510,6 +510,11 @@ def walk_dialogue_step(task, utils_sortie=None):
     # has / weakened...!" stalled a walk when two was the limit).
     if not lines or len(lines) > 4:
         return False
+    # Text in the box's corner is not enough on its own: the status-effect panel writes there too ("Chronal
+    # Ascension" was clicked eight times running). Where a frame is to hand, the box's own frame has to be seen.
+    frame = getattr(task, "frame", None)
+    if frame is not None and not speech_box_on_screen(frame):
+        return False
     # Not tied to the health bar or to being out of a fight: a walk's cut-in speaks in this box without the bar
     # ("We need to target its arms first."), and a scripted fight speaks in it mid-turn ("There's an opening near
     # the head!") and takes no card or end-of-turn key until it is clicked on. Nothing else in a fight writes there.
@@ -636,6 +641,33 @@ def status_folder():
     return status.PATH.parent
 
 
+EFFECT_TITLE = "effect"
+EFFECT_TITLE_REGION = (0.08, 0.02, 0.25, 0.09)
+HEALTH_REGION_PANEL = (0.60, 0.02, 0.93, 0.09)
+PANEL_CLOSE = (0.960, 0.052)
+
+
+def handle_effect_panel(task, utils_sortie=None):
+    """Close the status-effect panel a stray tap opened mid-fight ("Effect" top left, "Health 1870(94.5%)" top right).
+
+    Returns:
+        True when it was closed.
+    """
+    from src.en.screen import in_region
+
+    texts = task.all_texts or []
+    title = any((box.name or "").strip().casefold() == EFFECT_TITLE
+                and in_region(box, EFFECT_TITLE_REGION, task.width, task.height) for box in texts)
+    health = any("health" in (box.name or "").casefold()
+                 and in_region(box, HEALTH_REGION_PANEL, task.width, task.height) for box in texts)
+    if not (title and health):
+        return False
+    task.log_info("status-effect panel open, closing it")
+    task.click_relative(*PANEL_CLOSE)
+    task.sleep(1)
+    return True
+
+
 def handle_fork_steps(task, utils_sortie=None):
     """Run the steps this fork adds to the Chaos and Sortie modes, first that answers wins; reloadable like Story's."""
     for step in GENERAL_STEPS:
@@ -647,7 +679,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
@@ -664,7 +696,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
                "handle_map_drag")
 
 

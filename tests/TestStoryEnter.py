@@ -419,6 +419,22 @@ class TestBackOnStoryMap(unittest.TestCase):
             self.assertFalse(handle_back_on_story_map(FakeTask(list(self.LIVE))))
 
 
+class TestEffectPanel(unittest.TestCase):
+    LIVE = [FakeBox("Effect", 0.145, 0.05), FakeBox("Healthy", 0.686, 0.05), FakeBox("Health 1870(94.5%)", 0.82, 0.049),
+            FakeBox("Chronal Ascension", 0.23, 0.236, width=250)]
+
+    def test_the_panel_is_closed_not_read_as_speech(self):
+        import cv2
+        from src.en.story_enter import PANEL_CLOSE, handle_story_walk_dialogue
+        # Snapshot 20261011-213818: the panel's first entry sits where a speech box's line does.
+        task = FakeTask(list(self.LIVE))
+        task.frame = cv2.imread(str(Path(__file__).resolve().parent / "images" / "effect_panel.png"))
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
+        self.assertEqual((pressed, task.clicked), ([PANEL_CLOSE], []))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
