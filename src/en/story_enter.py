@@ -550,9 +550,12 @@ def handle_touch_to_start(task, utils_sortie=None):
     Returns:
         True when it was tapped.
     """
-    from src.en.screen import text_in_region
+    from src.en.screen import in_region
 
-    title = text_in_region(task, TOUCH_TO_START, TOUCH_REGION)
+    # Spaces dropped: OCR read it live as "TOUCHTOSTART".
+    wanted = TOUCH_TO_START.replace(" ", "")
+    title = next((box for box in task.all_texts or [] if wanted in (box.name or "").replace(" ", "").casefold()
+                  and in_region(box, TOUCH_REGION, task.width, task.height)), None)
     if title is None:
         return False
     task.log_info("title screen, touching to start")

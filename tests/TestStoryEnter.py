@@ -349,10 +349,11 @@ class TestStepFailure(unittest.TestCase):
 class TestTitleScreen(unittest.TestCase):
     def test_the_title_screen_is_touched(self):
         from src.en.story_enter import handle_fork_steps
-        task = FakeTask([FakeBox("TOUCH TO START", 0.5, 0.80, width=320), FakeBox("Repair Resources", 0.13, 0.885)])
+        # As OCR read it on the live title screen, spaces and all gone.
+        task = FakeTask([FakeBox("TOUCHTOSTART", 0.501, 0.80, width=320), FakeBox("Repair Resources", 0.124, 0.888)])
         task.frame = None
         self.assertTrue(handle_fork_steps(task))
-        self.assertEqual(task.clicked, ["TOUCH TO START"])
+        self.assertEqual(task.clicked, ["TOUCHTOSTART"])
 
 
 class TestOrder(unittest.TestCase):
