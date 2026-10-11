@@ -14,6 +14,8 @@ Commands are a JSON list in `komut.json` beside the status file, taken one per f
     {"bekle": 2}                               wait, in seconds
     {"goruntu": true}                          save a snapshot of the screen and the text read off it
     {"surukle": [x1, y1, x2, y2]}              drag, held still before letting go so nothing flings
+    {"tut": true}                              hold the screen: the mode keeps waiting until the file is replaced,
+                                               so a menu opened for a look is not closed by the mode's own handlers
 
 While the file exists the mode does nothing else, so its own handlers do not act on the screens being opened. When the
 list is done, or a command fails, the file is removed and `komut-sonuc.json` records every command and its outcome.
@@ -114,6 +116,8 @@ def run(task, command):
         frame = getattr(task, "frame", None)
         image = snapshot.save(task, frame, 0) if frame is not None else None
         return "ok" if image else "no frame to save"
+    if "tut" in command:
+        return "hold"
     if "surukle" in command:
         x1, y1, x2, y2 = command["surukle"]
         task.swipe_relative(float(x1), float(y1), float(x2), float(y2), duration=DRAG_SECONDS, settle_time=DRAG_HOLD)
@@ -135,6 +139,14 @@ def step(task):
         return True
     command = commands[0]
     outcome = run(task, command)
+    if outcome == "hold":
+        # Report what ran before the hold once, so a watcher knows the screen is ready to look at.
+        log = getattr(task, LOG, None) or []
+        if log:
+            result_path().write_text(json.dumps({"sonuc": "holding", "zaman": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                                 "komutlar": log}, ensure_ascii=False, indent=1), encoding="utf-8")
+            setattr(task, LOG, [])
+        return True
     if outcome == "again":
         return True
     log = getattr(task, LOG, None) or []

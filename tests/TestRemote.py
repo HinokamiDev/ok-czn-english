@@ -88,5 +88,17 @@ class TestRemote(unittest.TestCase):
         self.assertEqual(task.actions, [])
 
 
+    def test_a_hold_keeps_the_mode_waiting_until_the_file_is_replaced(self):
+        self.write([{"tus": "esc"}, {"tut": True}])
+        task = FakeTask()
+        for _ in range(5):
+            self.assertTrue(remote.step(task))
+        self.assertTrue(remote.commands_path().exists())
+        self.assertEqual(self.result()["sonuc"], "holding")
+        self.assertEqual(task.actions, [("key", "esc")])
+        self.write([{"tus": "f"}])
+        self.assertTrue(remote.step(task))
+        self.assertFalse(remote.commands_path().exists())
+
 if __name__ == "__main__":
     unittest.main()
