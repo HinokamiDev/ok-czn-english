@@ -14,7 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tests.fakes import FakeBox as Box  # noqa: E402
 
-from src.en.draft import GOOD_ENOUGH, ROLES, badges, rank, rerollable, role_for, role_of  # noqa: E402
+from src.en.draft import GOOD_ENOUGH, ROLES, badges, choose, rank, rerollable, role_for, role_of  # noqa: E402
 
 WIDTH, HEIGHT = 1920, 1080
 # Where the three cards sit, measured off the screen the run captured.
@@ -127,6 +127,22 @@ class TestDraft(unittest.TestCase):
         no_button = {"name": "Rin", "x": 0.322, "y": NAME_Y, "refresh_y": None}
         self.assertFalse(rerollable(task, no_button))
 
+
+
+class TestHealerFirst(unittest.TestCase):
+    # Names from the live draft that took Hilde (Attack). Rei's and Maribell's badges were not logged, so
+    # their roles here are illustrative.
+    OFFER = [("Healing", {"name": "Rei"}), ("Attack", {"name": "Hilde"}), ("Protection", {"name": "Maribell"})]
+
+    def test_a_team_without_a_healer_takes_the_one_on_offer(self):
+        self.assertEqual(choose(self.OFFER, [])[1]["name"], "Rei")
+
+    def test_once_a_healer_is_in_damage_comes_first_again(self):
+        self.assertEqual(choose(self.OFFER, ["Healing"])[1]["name"], "Hilde")
+
+    def test_no_healer_on_offer_keeps_the_ranking(self):
+        offer = [("Support", {"name": "A"}), ("Core", {"name": "B"})]
+        self.assertEqual(choose(offer, [])[1]["name"], "B")
 
 if __name__ == "__main__":
     unittest.main()

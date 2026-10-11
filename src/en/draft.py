@@ -17,6 +17,11 @@ ROLE_READINGS = {"Core": ("core",), "Attack": ("attack", "攻击力"), "Support"
                  "Healing": ("healing",), "Protection": ("protection",)}
 # Rerolling is only worth a slot when nothing on offer does damage.
 GOOD_ENOUGH = ("Core", "Attack")
+# A team with no healer takes one the first time a draft offers it, ahead of damage. Damage first left a run
+# drafting attackers while a healer sat on the screen.
+HEALER = "Healing"
+# Where the roles drafted this run are kept. `member_status` is replaced when a run starts.
+DRAFTED = "_en_drafted_roles"
 
 # The band the three cards occupy, and how far a badge may sit from a slot to belong to it.
 CARD_REGION = (0.077, 0.100, 0.946, 0.871)
@@ -92,6 +97,38 @@ def role_for(slot, found):
     return min(near)[1] if near else None
 
 
+def drafted_roles(task):
+    """The roles drafted so far this run.
+
+    Args:
+        task: The running task.
+
+    Returns:
+        The list, held on the run's `member_status` so a new run starts empty.
+    """
+    holder = getattr(task, "member_status", None)
+    if not isinstance(holder, dict):
+        holder = task.__dict__.setdefault("_en_member_status", {})
+    return holder.setdefault(DRAFTED, [])
+
+
+def choose(candidates, drafted):
+    """Pick from a draft: a healer while the team has none, otherwise the best role.
+
+    Args:
+        candidates: `(role, slot)` pairs, role None where the badge was not read.
+        drafted: The roles drafted earlier this run.
+
+    Returns:
+        The chosen `(role, slot)` pair.
+    """
+    if HEALER not in drafted:
+        healers = [pair for pair in candidates if pair[0] == HEALER]
+        if healers:
+            return healers[0]
+    return min(candidates, key=lambda pair: rank(pair[0]))
+
+
 def rerollable(task, slot):
     """Say whether a slot still has its reroll.
 
@@ -137,11 +174,13 @@ def apply():
             if not slots:
                 return False
             found = badges(task)
-            ranked = sorted(((rank(role_for(slot, found)), slot) for slot in slots), key=lambda pair: pair[0])
-            best_rank, best = ranked[0]
-            best_role = ROLES[best_rank] if best_rank < len(ROLES) else None
+            candidates = [(role_for(slot, found), slot) for slot in slots]
+            task.log_info("draft offers " + ", ".join(f"{slot['name']} ({role or 'role unread'})"
+                                                    for role, slot in candidates))
+            drafted = drafted_roles(task)
+            best_role, best = choose(candidates, drafted)
 
-            if best_role not in GOOD_ENOUGH:
+            if best_role not in GOOD_ENOUGH and best_role != HEALER:
                 spendable = [slot for slot in slots if rerollable(task, slot)]
                 if spendable:
                     task.log_info(f"draft offers no {' or '.join(GOOD_ENOUGH)}, rerolling {len(spendable)} slot(s)")
@@ -150,8 +189,10 @@ def apply():
                         task.sleep(1)
                     return True
 
-            task.log_info(f"draft taking {best['name']} ({best_role or 'role unread'})")
+            reason = ", the team has no healer yet" if best_role == HEALER and HEALER not in drafted else ""
+            task.log_info(f"draft taking {best['name']} ({best_role or 'role unread'}){reason}")
             utils._move_and_click(task, best["x"], best["y"])
+            drafted.append(best_role)
             task.sleep(1)
             return True
 
