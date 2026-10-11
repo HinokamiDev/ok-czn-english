@@ -19,6 +19,39 @@ HIDDEN = ("TestTrigger", "GetMengbian")
 _patched = False
 
 
+def bring_game_forward(task):
+    """Put the game window in front, which Start and Resume leave behind the app.
+
+    The button is clicked in this app's window, so the game is left covered and the user had to switch to it by
+    hand before anything could be read. A failure is only logged: the run can still go on if the user switches.
+
+    Args:
+        task: The mode starting or resuming.
+    """
+    try:
+        task.ensure_in_front()
+    except Exception as error:
+        logger.warning(f"could not bring the game window forward: {error}")
+
+
+def unpausing(task):
+    """Build the resume for a moved mode, bringing the game forward as it goes.
+
+    Args:
+        task: The mode being moved.
+
+    Returns:
+        The replacement `unpause`.
+    """
+    original_unpause = task.unpause
+
+    def unpause():
+        original_unpause()
+        bring_game_forward(task)
+
+    return unpause
+
+
 def looping(task):
     """Wrap a trigger task's single-pass `run` so it repeats until the task stops.
 
@@ -39,6 +72,7 @@ def looping(task):
         # never runs. That override is what makes the three modes mutually exclusive and what resets the
         # per-run counters, without which a stop-after-N-rounds setting trips on the second Start.
         original_enable()
+        bring_game_forward(task)
         while task.enabled:
             started = time.time()
             original_run()
@@ -94,6 +128,9 @@ def to_task(task, executor, communicate):
     executor.onetime_tasks.append(task)
     task.run = looping(task)
     task.pause = pausing(task, communicate)
+    # Every framework task has one; the guard only spares stand-ins that model the pause alone.
+    if hasattr(task, "unpause"):
+        task.unpause = unpausing(task)
     # `TaskCard` offers an Edit button for anything loaded out of `ok_tasks/`, and it opens the Script tab,
     # which is gone. Clearing this drops the button. The cost is that the modes now count as built-in to the
     # debug file watcher, which only matters while editing `ok_tasks/` with the app running.

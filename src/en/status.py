@@ -24,7 +24,9 @@ HEARTBEAT_SECONDS = 10
 MAX_EVENTS = 50
 
 # Event -> the state it leaves the run in.
-STATES = {"basladi": "calisiyor", "kosu_bitti": "calisiyor", "takildi": "takildi", "hata": "hata", "durdu": "durdu"}
+STATES = {"basladi": "calisiyor", "kosu_bitti": "calisiyor", "takildi": "takildi", "hata": "hata", "durdu": "durdu",
+          # A choice handed to a watcher through `src/en/ask.py`, and the run carrying on once it is answered.
+          "karar": "karar_bekliyor", "karar_verildi": "calisiyor"}
 
 _last_beat = 0.0
 
@@ -93,7 +95,7 @@ def heartbeat(task, path=None, every=HEARTBEAT_SECONDS):
     path = path or PATH
     try:
         data = read(path)
-        if not data or data.get("durum") not in ("calisiyor", "takildi"):
+        if not data or data.get("durum") not in ("calisiyor", "takildi", "karar_bekliyor"):
             return
         data.update(guncelleme=_now(), **_score(task))
         _write(data, path)

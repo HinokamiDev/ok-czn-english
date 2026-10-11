@@ -5,7 +5,9 @@ stubbed, so the seams the wrapper relies on are exercised rather than assumed. T
 `select_card` that reads its cards through the same module attribute upstream does.
 """
 
+import json
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -17,12 +19,13 @@ sys.path.insert(0, str(REPO_ROOT / "ok_tasks"))
 
 import utils  # noqa: E402
 
-from src.en import notify  # noqa: E402
+from src.en import ask, notify, status  # noqa: E402
 from src.en import safe_picks  # noqa: E402
 from src.en.safe_picks import (  # noqa: E402
-    COPY_ONLY_PRIORITISED, DEFAULTS, MAX_COPIES, NEVER_REMOVE, PAUSE_ALWAYS, RANDOM, STRICT_MATCHING,
-    UNMATCHED_EPIPHANY, copies_made, guarding_copy_choice, guarding_deck, guarding_epiphany, install, seed,
-    words_match,
+    ASK_ALWAYS, ASK_LISTED, ASK_TIMEOUT, ASKING, CLICKED_AT, COPY_ONLY_PRIORITISED, DEFAULTS, MAX_COPIES,
+    NEVER_REMOVE, PAUSE_ALWAYS, RANDOM, SETTLE_SECONDS, STRICT_MATCHING, UNMATCHED_EPIPHANY, UNREADABLE_SLOT_EMPTY,
+    copies_made, guarding_copy_choice, guarding_deck, guarding_epiphany, install, page_name, quiet_while_asking,
+    reading_unknown_as_empty, seed, words_match,
 )
 from tests.fakes import FakeBox  # noqa: E402
 
@@ -85,9 +88,15 @@ def handler():
 
 
 class TestWordsMatch(unittest.TestCase):
-    def test_words_have_to_appear_whole_and_in_order(self):
+    def test_words_have_to_appear_whole(self):
         self.assertTrue(words_match("Opening Found Retain Extra Attack", "Opening Found：:Retain. On Retain, 1 Extra Attack."))
-        self.assertFalse(words_match("Opening Found Extra Attack Retain", "Opening Found：:Retain. 1 Extra Attack."))
+        self.assertFalse(words_match("Opening Found Retain Extra Attack", "Opening Found：:Retain. 1 Extra hit."))
+
+    def test_word_order_does_not_matter_since_ocr_scrambles_lines(self):
+        # Read off the live client: the same offer, two frames apart.
+        scrambled = ("Flame Dragon's Jewel：:[Unique / Initiation]Increase CriticalChance of this unit by30%"
+                     "Tenacity Damage, 1On Critical Hit, 1Ember")
+        self.assertTrue(words_match("Flame Dragon's Jewel Critical Hit Ember", scrambled))
 
     def test_scattered_letters_are_not_enough(self):
         text = "Opening Found：:" + BERYL_DRAW["description"]
@@ -165,6 +174,137 @@ class TestEpiphany(unittest.TestCase):
         with EpiphanyScreen([BERYL_DRAW]) as screen, patch.object(utils, "find_box_at_point", lambda *a: None):
             self.assertFalse(handler()(task))
         self.assertEqual(screen.clicks, [])
+
+
+JEWEL_TENACITY = {"name": "Flame Dragon's Jewel", "x": 0.2057, "y": 0.3269,
+                  "description": "Increase Damage[Unique /Initiation]Amount of Attack Cardsof this unit by 20%When an Attack Card isactivated, 1 TenacityDamage to the target"}
+JEWEL_CRIT = {"name": "Flame D'sJewel", "x": 0.4578, "y": 0.3278,
+              "description": "[Unique / Initiation]Increase CriticalChance of this unit by30%On Critical Hit, 1Tenacity Damage, 1Ember"}
+JEWEL_PASSION = {"name": "Flame Dragon's Jewel", "x": 0.7104, "y": 0.3269,
+                 "description": "[Unique /InitiationIncrease DamageAmount of Attack CardsWhen an Attack Card isof this unit by 30%Weakness to the targetactivated, 1 Passion"}
+
+
+class TestLiveReadings(unittest.TestCase):
+    """Replays the Flame Dragon's Jewel offer exactly as the first live run read it."""
+
+    def test_garbled_name_is_read_under_the_screens_name(self):
+        self.assertEqual(page_name([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]), "Flame Dragon's Jewel")
+        task = FakeTask(**{"闪光优先级": ["Flame Dragon's Jewel Critical Hit Ember"]})
+        with EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
+            self.assertTrue(handler()(task))
+        self.assertEqual(screen.clicks, [(JEWEL_CRIT["x"], JEWEL_CRIT["y"])])
+
+    def test_screen_is_left_alone_while_the_pick_animates_out(self):
+        task = FakeTask(**{"闪光卡牌列表": ["Flame Dragon's Jewel"]})
+        setattr(task, CLICKED_AT, safe_picks.time.monotonic())
+        with EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
+            self.assertTrue(handler()(task))
+        self.assertEqual((screen.clicks, task.paused), ([], 0))
+
+    def test_a_pick_starts_the_settle_window(self):
+        task = FakeTask(**{"闪光优先级": ["Flame Dragon's Jewel 30% Passion"]})
+        wrapped = handler()
+        with EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
+            wrapped(task)
+            wrapped(task)
+        self.assertEqual(screen.clicks, [(JEWEL_PASSION["x"], JEWEL_PASSION["y"])])
+        later = safe_picks.time.monotonic() + SETTLE_SECONDS + 1
+        with patch.object(safe_picks.time, "monotonic", return_value=later), \
+                EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
+            wrapped(task)
+        self.assertEqual(len(screen.clicks), 1)
+
+
+class TestAsking(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.path = patch.object(status, "PATH", Path(self.folder.name) / "son-calisma.json")
+        self.path.start()
+
+    def tearDown(self):
+        self.path.stop()
+        self.folder.cleanup()
+
+    def read_request(self):
+        return json.loads(ask.request_path().read_text(encoding="utf-8"))
+
+    def answer(self, request_id, choice):
+        ask.answer_path().write_text(json.dumps({"id": request_id, "secim": choice}), encoding="utf-8")
+
+    def test_question_is_published_then_the_answer_clicked(self):
+        task = FakeTask(**{"闪光卡牌列表": ["Flame Dragon's Jewel"], UNMATCHED_EPIPHANY: ASK_LISTED})
+        wrapped = handler()
+        offers = [JEWEL_PASSION, JEWEL_TENACITY, JEWEL_CRIT]
+        with EpiphanyScreen(offers) as screen:
+            self.assertTrue(wrapped(task))
+            request = self.read_request()
+            self.assertEqual([option["metin"].split(":")[0] for option in request["secenekler"]],
+                             ["left", "middle", "right"])
+            self.assertEqual(status.read()["durum"], "karar_bekliyor")
+            self.assertTrue(wrapped(task))
+            self.assertEqual(screen.clicks, [])
+            self.answer(request["id"], 2)
+            self.assertTrue(wrapped(task))
+        self.assertEqual(screen.clicks, [(JEWEL_CRIT["x"], JEWEL_CRIT["y"])])
+        self.assertFalse(ask.request_path().exists())
+        self.assertEqual(status.read()["durum"], "calisiyor")
+        self.assertEqual(task.paused, 0)
+
+    def test_answer_for_another_request_is_ignored(self):
+        task = FakeTask(**{UNMATCHED_EPIPHANY: ASK_ALWAYS})
+        wrapped = handler()
+        with EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
+            wrapped(task)
+            self.answer("someone-else", 1)
+            wrapped(task)
+        self.assertEqual(screen.clicks, [])
+
+    def test_no_answer_in_time_pauses(self):
+        task = FakeTask(**{UNMATCHED_EPIPHANY: ASK_ALWAYS, ASK_TIMEOUT: 0})
+        wrapped = handler()
+        with EpiphanyScreen([JEWEL_TENACITY, JEWEL_CRIT, JEWEL_PASSION]) as screen:
+            wrapped(task)
+            safe_picks.time.sleep(0.01)
+            wrapped(task)
+        self.assertEqual((screen.clicks, task.paused), ([], 1))
+        self.assertIsNone(getattr(task, ASKING))
+
+    def test_stuck_fallback_stays_away_while_asking(self):
+        task = FakeTask()
+        fallback = []
+        guarded = quiet_while_asking(lambda task_: fallback.append(1) or True)
+        setattr(task, ASKING, {"id": "x"})
+        self.assertFalse(guarded(task))
+        setattr(task, ASKING, None)
+        self.assertTrue(guarded(task))
+        self.assertEqual(fallback, [1])
+
+
+class TestUnreadableSlots(unittest.TestCase):
+    def run_reading(self, rgb, enabled=True):
+        task = FakeTask(**{UNREADABLE_SLOT_EMPTY: enabled})
+        seen = []
+
+        def quality_of(task_, point, allow_empty=False):
+            return "传说", rgb
+
+        def handler_(task_):
+            seen.append(utils._equipment_quality_at(task_, (0.5, 0.5), allow_empty=True))
+
+        with patch.object(utils, "_equipment_quality_at", quality_of):
+            reading_unknown_as_empty(handler_, utils)(task)
+        return seen[0][0]
+
+    def test_grey_read_on_the_live_client_counts_as_empty(self):
+        for rgb in ((56, 56, 55), (60, 59, 58), (78, 67, 50), (101, 80, 57)):
+            with self.subTest(rgb=rgb):
+                self.assertEqual(self.run_reading(rgb), "")
+
+    def test_mythic_violet_stays_the_top_tier(self):
+        self.assertEqual(self.run_reading((137, 82, 164)), "传说")
+
+    def test_can_be_switched_back(self):
+        self.assertEqual(self.run_reading((56, 56, 55), enabled=False), "传说")
 
 
 def deck_card(name, description="", y=0.5, selected=False):
@@ -290,7 +430,8 @@ class TestSettings(unittest.TestCase):
 
     def test_install_wraps_each_picker_once(self):
         module = types.ModuleType("fake_utils")
-        for name in ("handle_view_original", "select_card", "handle_copy_card_choice"):
+        for name in ("handle_view_original", "select_card", "handle_copy_card_choice", "handle_stuck_log",
+                     "handle_equipment"):
             setattr(module, name, (lambda name: lambda *a, **k: name)(name))
         install(module)
         first = module.select_card

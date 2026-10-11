@@ -44,6 +44,7 @@ Bu klasör ok-czn'in HinokamiDev çatalıdır. Chaos Zero Nightmare'de Chaos/Sor
 | `takildi` | Aynı ekranda 60 sn'den uzun kaldı. | "ok-czn bir ekranda takıldı, bir göz atar mısın?" |
 | `hata` | Bir hatayla durdu. `mesaj` hatayı içerir. | Hatayı aynen ilet. |
 | `durdu` | Durduruldu (Burak durdurdu, enerji bitti ya da ayarlanan tur sayısı doldu). | "ok-czn durdu: X koşudan Y'si başarılı." |
+| `karar_bekliyor` | Epiphany seçimi için cevap bekliyor (Unmatched Epiphany = Ask...). | Aşağıdaki karar protokolünü uygula ya da Burak'a seçenekleri ilet. |
 
 `olaylar` listesi son 50 olayı (basladi, kosu_bitti, takildi, hata, durdu) zamanıyla tutar.
 
@@ -59,3 +60,11 @@ Bu klasör ok-czn'in HinokamiDev çatalıdır. Chaos Zero Nightmare'de Chaos/Sor
   seçmek yerine durur (Resume ile devam); eşleşen öncelik hedef işaretinin önüne geçer; kopyalama doğru varyantı
   ve "Max Copies Per Card" sınırını gözetir; "Never Remove" listesi kartları silinmekten korur. Gerçek oyunda
   henüz denenmedi; ayarlardan upstream davranışına dönülebilir.
+
+## Karar protokolü (Ask on listed cards / Always ask)
+
+ok-czn eşleşmeyen bir Epiphany'de durmak yerine `%LOCALAPPDATA%\ok-czn-hd\karar-istegi.json` yazar
+(`id`, `baslik`, `secenekler`: no + soldan sağa konum + OCR açıklaması) ve durum `karar_bekliyor` olur.
+Cevap: aynı klasöre `karar.json` = `{"id": "<istekteki id>", "secim": <no>}`. Tıklamayı ok-czn yapar;
+sen oyuna dokunmazsın. Cevap "Ask Timeout Seconds" içinde gelmezse ok-czn Burak için duraklar.
+OCR açıklamaları satır sırası karışık okunabilir; kelimelere bak, sıraya değil.
