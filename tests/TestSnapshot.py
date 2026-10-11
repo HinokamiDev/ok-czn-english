@@ -73,6 +73,49 @@ class TestSnapshot(unittest.TestCase):
         self.assertEqual(self.saved(), [])
 
 
+class TestActions(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = patch.object(status, "PATH", Path(folder.name) / "son-calisma.json")
+        path.start()
+        self.addCleanup(path.stop)
+        self.task = FakeTask()
+
+    def moving(self, second):
+        self.task.frame = np.full((1080, 1920, 3), (second * 13) % 255, dtype=np.uint8)
+        self.task.all_texts = [FakeBox(f"line {chr(65 + second % 26)}", 0.5, 0.8)]
+
+    def test_the_same_action_over_and_over_is_saved(self):
+        # Live: "e" sent every 3s while a box refused it, the screen and the hand's OCR changing all the while.
+        actions = self.task.__dict__.setdefault(snapshot.ACTIONS, snapshot.deque(maxlen=16))
+        for second in range(0, 30, 3):
+            actions.append((second, "key", "e"))
+            self.moving(second)
+            snapshot.check(self.task, now=second)
+        self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
+        self.assertIn("Same key e repeated", status.read()["mesaj"])
+
+    def test_varied_actions_are_not_a_loop(self):
+        actions = self.task.__dict__.setdefault(snapshot.ACTIONS, snapshot.deque(maxlen=16))
+        for second in range(0, 60, 3):
+            actions.append((second, "key", str(second % 5)))
+            self.moving(second)
+            snapshot.check(self.task, now=second)
+        self.assertFalse(snapshot.folder().exists() and list(snapshot.folder().glob("*.png")))
+
+    def test_nothing_sent_for_long_is_saved_even_on_a_moving_screen(self):
+        for second in range(0, snapshot.IDLE_SECONDS + 10, 5):
+            self.moving(second)
+            snapshot.check(self.task, now=second)
+        self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
+        self.assertIn("No click or key", status.read()["mesaj"])
+
+    def test_clicks_on_boxes_are_described_by_name_and_place(self):
+        self.assertEqual(snapshot.describe_click((FakeBox("确认", 0.5, 0.5),), {}), "确认@45,26")
+        self.assertEqual(snapshot.describe_click((1532, 59), {}), "@76,2")
+
+
 class TestOnRequest(unittest.TestCase):
     def setUp(self):
         folder = tempfile.TemporaryDirectory()

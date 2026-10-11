@@ -7,7 +7,9 @@ and records a `takildi` event naming them, once per stuck spell.
 """
 
 import json
+import sys
 import time
+from collections import deque
 
 from ok import Logger
 
@@ -40,6 +42,16 @@ ASKING = "_en_epiphany_asking"
 # A watcher can ask for the current frame at any time by creating this file beside the status file. A fight can be
 # stuck while its text keeps changing - OCR reads the hand differently every frame - so waiting is not always enough.
 REQUEST_NAME = "goruntu.istek"
+# Every click and key the run sends is noted, so a run can be caught going round in circles or doing nothing even
+# while its screen and text keep moving - the two ways a stall slipped past the picture and text clocks.
+ACTIONS = "_en_snapshot_actions"
+LOOP_REPEATS = 8
+LOOP_WITHIN = 60
+IDLE_SECONDS = 180
+LOOP_REPORTED = "_en_snapshot_loop_reported"
+IDLE_REPORTED = "_en_snapshot_idle_reported"
+RUN_SEEN = "_en_snapshot_run_seen"
+HOOKED = "_en_snapshot_hooked"
 
 
 def folder():
@@ -125,6 +137,90 @@ def check_text(task, now):
     return bool(image)
 
 
+def note_action(task, kind, detail):
+    """Record one click or key, called from the hooks on every send."""
+    actions = task.__dict__.setdefault(ACTIONS, deque(maxlen=LOOP_REPEATS * 2))
+    actions.append((time.monotonic(), kind, detail))
+
+
+def describe_click(args, kwargs):
+    """Reduce a click's target to a coarse, comparable label."""
+    target = args[0] if args else kwargs.get("x", -1)
+    if hasattr(target, "x") and hasattr(target, "width"):
+        return f"{getattr(target, 'name', '') or ''}@{int(target.x) // 20},{int(target.y) // 20}"
+    y = args[1] if len(args) > 1 else kwargs.get("y", -1)
+    try:
+        return f"@{int(target) // 20},{int(y) // 20}"
+    except (TypeError, ValueError):
+        return "@?"
+
+
+def hook_actions():
+    """Note every click and key a task sends. Installed once; the notes go through this module by name, so a reload
+    of it changes what is noted without hooking twice."""
+    try:
+        from ok.task.task import ExecutorOperation
+    except ImportError:
+        return
+    if getattr(ExecutorOperation, HOOKED, False):
+        return
+    original_click, original_key = ExecutorOperation.click, ExecutorOperation.send_key
+
+    def click(self, *args, **kwargs):
+        try:
+            module = sys.modules[__name__]
+            module.note_action(self, "click", module.describe_click(args, kwargs))
+        except Exception:
+            pass
+        return original_click(self, *args, **kwargs)
+
+    def send_key(self, key, *args, **kwargs):
+        try:
+            sys.modules[__name__].note_action(self, "key", str(key))
+        except Exception:
+            pass
+        return original_key(self, key, *args, **kwargs)
+
+    ExecutorOperation.click, ExecutorOperation.send_key = click, send_key
+    setattr(ExecutorOperation, HOOKED, True)
+
+
+def check_actions(task, now):
+    """Save the frame when the run repeats one action over and over, or sends nothing at all for a long while.
+
+    Returns:
+        True when a snapshot was taken.
+    """
+    actions = list(getattr(task, ACTIONS, None) or [])
+    task.__dict__.setdefault(RUN_SEEN, now)
+    last = actions[-1] if actions else None
+    recent = actions[-LOOP_REPEATS:]
+    looping = (len(recent) == LOOP_REPEATS and len({(kind, detail) for _, kind, detail in recent}) == 1
+               and now - recent[0][0] <= LOOP_WITHIN)
+    if not looping:
+        setattr(task, LOOP_REPORTED, False)
+    elif not getattr(task, LOOP_REPORTED, False):
+        setattr(task, LOOP_REPORTED, True)
+        return report(task, f"Same {last[1]} {last[2]} repeated {LOOP_REPEATS} times")
+    quiet_since = last[0] if last else getattr(task, RUN_SEEN)
+    if now - quiet_since < IDLE_SECONDS:
+        setattr(task, IDLE_REPORTED, False)
+        return False
+    if getattr(task, IDLE_REPORTED, False):
+        return False
+    setattr(task, IDLE_REPORTED, True)
+    return report(task, f"No click or key for {int(now - quiet_since)}s")
+
+
+def report(task, reason):
+    frame = getattr(task, "frame", None)
+    image = save(task, frame, 0) if frame is not None else None
+    if image:
+        status.event(task, "takildi", f"{reason}, snapshot {image}")
+        task.log_info(f"{reason.lower()}, saved {image}")
+    return bool(image)
+
+
 def answer_request(task):
     """Save the current frame when a watcher asked for it.
 
@@ -152,6 +248,7 @@ def check(task, now=None):
     """
     if answer_request(task):
         return
+    hook_actions()
     if getattr(task, ASKING, None):
         setattr(task, STILL_SINCE, None)
         setattr(task, TEXT_SINCE, None)
@@ -160,6 +257,10 @@ def check(task, now=None):
     if frame is None:
         return
     now = time.monotonic() if now is None else now
+    if check_actions(task, now):
+        setattr(task, REPORTED, True)
+        setattr(task, TEXT_REPORTED, True)
+        return
     if check_text(task, now):
         # One snapshot covers both: the picture's own clock is marked reported for this spell too.
         setattr(task, REPORTED, True)
