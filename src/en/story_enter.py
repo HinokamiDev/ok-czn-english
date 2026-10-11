@@ -432,7 +432,7 @@ def handle_chapter_forward(task, utils_sortie=None):
     texts = task.all_texts or []
     on_map = any((box.name or "").strip().casefold().startswith("chapter")
                  and in_region(box, CHAPTER_TABS_REGION, width, height) for box in texts)
-    if not on_map:
+    if not on_map or titled(task, BATTLE_MISSIONS):
         return False
     if any(in_region(box, EDGE_STAGE_REGION, width, height) for box in texts):
         return False
@@ -447,6 +447,111 @@ def handle_chapter_forward(task, utils_sortie=None):
     task.log_info("nothing left on this chapter's map and no next chapter shown on it, backing out to pick the next")
     task.click_relative(*CHAPTER_FORWARD)
     setattr(task, CHAPTER_FORWARD_PRESSED, time.monotonic())
+    task.sleep(2)
+    return True
+
+
+# The screen backing out of a finished chapter lands on: a Story card naming the next episode ("Act 4 - Chapter 1,
+# Episode 1") beside a Battle Missions card (snapshot 20261011-220855). Upstream's stage-entrance match clicked the
+# Battle Missions card, and the run wandered between that map and this screen.
+BATTLE_MISSIONS = "battle missions"
+HUB_CARDS_REGION = (0.0, 0.60, 1.0, 1.0)
+EPISODE_WORD = "episode"
+HUB_PRESSED = "_en_story_hub_pressed"
+HUB_COOLDOWN = 10
+OFF_PATH_PRESSED = "_en_off_path_pressed"
+OFF_PATH_COOLDOWN = 5
+
+
+def titled(task, title):
+    """Whether the screen's top-left title reads `title`."""
+    from src.en.screen import in_region
+
+    return any((box.name or "").strip().casefold() == title
+               and in_region(box, STORY_LABEL_REGION, task.width, task.height) for box in task.all_texts or [])
+
+
+def handle_story_hub(task, utils_sortie=None):
+    """Open the next story episode from the screen with the Story and Battle Missions cards.
+
+    Returns:
+        True when the Story card was pressed.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    lower = [box for box in task.all_texts or [] if in_region(box, HUB_CARDS_REGION, width, height)]
+    episode = next((box for box in lower if EPISODE_WORD in (box.name or "").casefold()), None)
+    if episode is None or not any(BATTLE_MISSIONS in (box.name or "").casefold() for box in lower):
+        return False
+    last = getattr(task, HUB_PRESSED, None)
+    if last and time.monotonic() - last < HUB_COOLDOWN:
+        return False
+    task.log_info(f"on the story screen, opening the next episode '{episode.name.strip()}'")
+    task.click_box(episode)
+    setattr(task, HUB_PRESSED, time.monotonic())
+    task.sleep(2)
+    return True
+
+
+# The Story card opens a list of acts, each card with its name and "Complete" under it once done; the next act's card
+# shows the chapter and episode to play instead (snapshot 20261011-221018: Act 1-3 Complete, Act 4 "Chapter 1 Episode").
+ACT_TITLES_REGION = (0.0, 0.60, 1.0, 0.70)
+ACT_CARDS_REGION = (0.0, 0.70, 1.0, 0.90)
+ACT_COLUMN = 0.06
+COMPLETE_WORD = "complete"
+ACT_PRESSED = "_en_act_pressed"
+
+
+def handle_act_list(task, utils_sortie=None):
+    """Open the first act whose card is not marked Complete.
+
+    Returns:
+        True when an act's card was pressed.
+    """
+    from src.en.screen import in_region
+
+    width, height = task.width, task.height
+    texts = task.all_texts or []
+    acts = sorted((box for box in texts if (box.name or "").replace(" ", "").casefold().startswith("act")
+                   and in_region(box, ACT_TITLES_REGION, width, height)), key=lambda box: box.x)
+    if len(acts) < 2:
+        return False
+    cards = [box for box in texts if in_region(box, ACT_CARDS_REGION, width, height)]
+
+    def column(act):
+        middle = (act.x + act.width / 2) / width
+        return [box for box in cards if abs((box.x + box.width / 2) / width - middle) < ACT_COLUMN]
+
+    act = next((act for act in acts
+                if not any(COMPLETE_WORD in (box.name or "").casefold() for box in column(act))), None)
+    if act is None:
+        return False
+    last = getattr(task, ACT_PRESSED, None)
+    if last and time.monotonic() - last < HUB_COOLDOWN:
+        return False
+    target = max(column(act), key=lambda box: box.y, default=act)
+    task.log_info(f"on the act list, opening '{act.name.strip()}', the first not marked Complete")
+    task.click_box(target)
+    setattr(task, ACT_PRESSED, time.monotonic())
+    task.sleep(2)
+    return True
+
+
+def handle_off_story_path(task, utils_sortie=None):
+    """Back out of the Battle Missions map, which the Story mode has no business on.
+
+    Returns:
+        True when the back button was pressed.
+    """
+    if not titled(task, BATTLE_MISSIONS):
+        return False
+    last = getattr(task, OFF_PATH_PRESSED, None)
+    if last and time.monotonic() - last < OFF_PATH_COOLDOWN:
+        return False
+    task.log_info("on the Battle Missions map instead of the story, backing out")
+    task.click_relative(*CHAPTER_FORWARD)
+    setattr(task, OFF_PATH_PRESSED, time.monotonic())
     task.sleep(2)
     return True
 
@@ -743,7 +848,7 @@ def place_general_steps():
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
 STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
-               "handle_map_drag", "handle_chapter_forward")
+               "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_chapter_forward")
 
 
 def place_after_magnifiers():

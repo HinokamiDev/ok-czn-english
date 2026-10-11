@@ -461,6 +461,63 @@ class TestChapterForward(unittest.TestCase):
         self.assertFalse(handle_chapter_forward(task))
 
 
+class TestStoryHub(unittest.TestCase):
+    # Snapshot 20261011-220855: where backing out of finished Chapter 3 landed.
+    HUB = [FakeBox("故事", 0.106, 0.047), FakeBox("Act 4 - Chapter 1, Episode 1", 0.27, 0.817, width=300),
+           FakeBox("故事", 0.331, 0.773), FakeBox("Battle Missions", 0.713, 0.774, width=200),
+           FakeBox("Chapter 7 B1", 0.661, 0.817, width=150)]
+    # Snapshot 20261011-220628: the Battle Missions map upstream's entrance match wandered into.
+    MISSIONS = [FakeBox("Battle Missions", 0.151, 0.046, width=200), FakeBox("Chapter 7", 0.403, 0.04),
+                FakeBox("Battle Missions", 0.199, 0.437, width=200), FakeBox("B5", 0.276, 0.503)]
+
+    def test_the_story_card_opens_the_next_episode(self):
+        from src.en.story_enter import handle_story_hub
+        task = MapTask(list(self.HUB))
+        self.assertTrue(handle_story_hub(task))
+        self.assertFalse(handle_story_hub(task))
+        self.assertEqual(task.clicked, ["Act 4 - Chapter 1, Episode 1"])
+
+    def test_a_story_map_is_not_the_hub(self):
+        from src.en.story_enter import handle_story_hub
+        self.assertFalse(handle_story_hub(MapTask(list(TestChapterForward.LIVE))))
+
+    def test_the_battle_missions_map_is_backed_out_of_not_paged(self):
+        from src.en.story_enter import CHAPTER_FORWARD, handle_chapter_forward, handle_off_story_path
+        task = MapTask(list(self.MISSIONS))
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertFalse(handle_chapter_forward(task))
+        self.assertTrue(handle_off_story_path(task))
+        self.assertEqual(pressed, [CHAPTER_FORWARD])
+
+    def test_a_story_map_is_not_off_the_path(self):
+        from src.en.story_enter import handle_off_story_path
+        self.assertFalse(handle_off_story_path(MapTask(list(TestChapterForward.LIVE))))
+
+
+class TestActList(unittest.TestCase):
+    # Snapshot 20261011-221018.
+    LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Act 1", 0.119, 0.668), FakeBox("Act2", 0.36, 0.667),
+            FakeBox("Act3", 0.595, 0.667), FakeBox("Act4N", 0.841, 0.662), FakeBox("Pilgrims of", 0.119, 0.742),
+            FakeBox("Forbidden Catalyst", 0.356, 0.741), FakeBox("Seed of Karmic Fire", 0.594, 0.742),
+            FakeBox("Nightmare", 0.119, 0.78), FakeBox("Through the Stars", 0.832, 0.78),
+            FakeBox("A Song Rippling", 0.832, 0.742), FakeBox("Complete", 0.119, 0.841),
+            FakeBox("Complete", 0.357, 0.841), FakeBox("Complete", 0.594, 0.841),
+            FakeBox("Chapter 1Episode", 0.827, 0.84)]
+
+    def test_the_first_act_not_complete_is_opened(self):
+        from src.en.story_enter import handle_act_list
+        task = MapTask(list(self.LIVE))
+        self.assertTrue(handle_act_list(task))
+        self.assertFalse(handle_act_list(task))
+        self.assertEqual(task.clicked, ["Chapter 1Episode"])
+
+    def test_every_act_complete_opens_nothing(self):
+        from src.en.story_enter import handle_act_list
+        boxes = [box for box in self.LIVE if box.name != "Chapter 1Episode"] + [FakeBox("Complete", 0.83, 0.841)]
+        self.assertFalse(handle_act_list(MapTask(boxes)))
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
