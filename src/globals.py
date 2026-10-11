@@ -19,7 +19,7 @@ class Globals(QObject):
         from src.en import (  # noqa: E501
             battle, battle_choice, claims, dashboard, deck, desire, devices, dialogue, key_scancodes, dice, draft, enter, equipment, events, layout,
             log_text, memory_limit, monitors, navigation, observe, ocr_text, overrides, persona, picker, pins, rest, rewards, safe_picks, sections, shell,
-            shop, shutdown, templates, notify, stuck, upload,
+            shop, shutdown, story_enter, templates, notify, stuck, upload,
         )
 
         # Before anything sends a key: the game reads keys by scan code, and ok-script sent every key as A.
@@ -36,6 +36,7 @@ class Globals(QObject):
         navigation.apply()
         events.apply()
         enter.apply()
+        story_enter.apply()
         # Before pins, so its install runs first and the pin narrowing wraps it: the pick it guards is made
         # among the pinned cards, exactly as upstream's would be.
         safe_picks.apply()
