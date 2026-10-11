@@ -543,6 +543,20 @@ class TestObserveCutOff(unittest.TestCase):
         task.all_texts = list(self.LIVE) + [FakeBox("#10", 0.97, 0.5, width=20)]
         self.assertFalse(handle_map_drag(task))
 
+    def test_a_stage_at_the_right_edge_does_not_drag_away_from_a_chaos_stage(self):
+        from src.en.story_enter import handle_map_drag
+        task = MapTask([FakeBox("Chapter 1", 0.402, 0.04), FakeBox("Observe", 0.3, 0.505, width=80),
+                        FakeBox("#02", 0.97, 0.5, width=20)])
+        self.assertFalse(handle_map_drag(task))
+
+    def test_the_chaos_stage_waits_for_a_dragged_map_to_settle(self):
+        import time
+        from src.en import story_enter
+        task = MapTask([FakeBox("Observe", 0.3, 0.505, width=80)])
+        setattr(task, story_enter.MAP_DRAG_BACK_PRESSED, time.monotonic())
+        self.assertFalse(story_enter.handle_observe_stage(task))
+        self.assertEqual(task.clicked, [])
+
     def test_a_map_without_it_is_left_alone(self):
         from src.en.story_enter import handle_observe_cut_off
         self.assertFalse(handle_observe_cut_off(MapTask(list(TestChapterForward.LIVE))))

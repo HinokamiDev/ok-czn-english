@@ -407,7 +407,8 @@ def handle_map_drag(task, utils_sortie=None):
     edge = next((box for box in texts
                  if ((box.name or "").strip().startswith("#") or len((box.name or "").strip()) >= 2)
                  and in_region(box, EDGE_STAGE_REGION, width, height)), None)
-    if not on_map or edge is None or observe_at_left_edge(task) is not None:
+    # An unentered chaos stage anywhere on the map comes first: dragging away from it left the two drags alternating.
+    if not on_map or edge is None or any(OBSERVE_STEM in (box.name or "").casefold() for box in texts):
         return False
     search = task.box_of_screen(*MAP_REGION)
     if any(task.find_feature(feature_name="enterstory", box=search) or []):
@@ -576,6 +577,10 @@ def handle_observe_stage(task, utils_sortie=None):
                   and in_region(box, OBSERVE_REGION, task.width, task.height)), None)
     if stage is None:
         return False
+    # A dragged map slides on for a moment: the click two seconds after a drag landed where the stage had been.
+    dragged = max(getattr(task, MAP_DRAG_PRESSED, None) or 0, getattr(task, MAP_DRAG_BACK_PRESSED, None) or 0)
+    if dragged and time.monotonic() - dragged < MAP_SETTLE_SECONDS:
+        return False
     last = getattr(task, OBSERVE_PRESSED, None)
     if last and time.monotonic() - last < 30:
         return False
@@ -594,6 +599,7 @@ OBSERVE_EDGE_REGION = (0.0, 0.35, 0.092, 0.70)
 OBSERVE_STEM = "bserve"
 MAP_DRAG_BACK = ((0.30, 0.62), (0.80, 0.62))
 MAP_DRAG_BACK_PRESSED = "_en_map_drag_back_pressed"
+MAP_SETTLE_SECONDS = 4
 
 
 def observe_at_left_edge(task):
