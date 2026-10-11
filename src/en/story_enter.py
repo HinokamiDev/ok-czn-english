@@ -384,7 +384,8 @@ def handle_map_drag(task, utils_sortie=None):
                  and in_region(box, CHAPTER_TABS_REGION, width, height) for box in texts)
     # Any stage text at the edge, not only its number: in Chapter 3 the next stage showed just the start of its name
     # ("The B" at (0.967, 0.436)) with the number cut off, and the map stood still for three minutes.
-    edge = next((box for box in texts if len((box.name or "").strip()) >= 2
+    edge = next((box for box in texts
+                 if ((box.name or "").strip().startswith("#") or len((box.name or "").strip()) >= 2)
                  and in_region(box, EDGE_STAGE_REGION, width, height)), None)
     if not on_map or edge is None:
         return False
