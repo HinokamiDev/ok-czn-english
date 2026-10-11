@@ -183,10 +183,14 @@ class TestWalkDialogue(unittest.TestCase):
         task = FakeTask([FakeBox("We need to target its arms first.", 0.219, 0.204, width=380)])
         self.assertTrue(handle_story_walk_dialogue(task, NO_FIGHT))
 
-    def test_never_during_a_fight(self):
+    def test_a_fight_waiting_on_the_box_is_clicked_on_too(self):
         from src.en.story_enter import handle_story_walk_dialogue
-        task = FakeTask([FakeBox("We need to target its arms first.", 0.219, 0.204, width=380)])
-        self.assertFalse(handle_story_walk_dialogue(task, IN_FIGHT))
+        # Snapshot 20261011-200343: mid-fight, the cards and the end-turn key were refused until this was clicked.
+        task = FakeTask([FakeBox("354 /475", 0.211, 0.036), FakeBox("There's an opening near the head!", 0.23, 0.205,
+                                                                     width=400),
+                         FakeBox("Fatal Strike", 0.43, 0.748), FakeBox("04/10", 0.501, 0.97)])
+        self.assertTrue(handle_story_walk_dialogue(task, IN_FIGHT))
+        self.assertEqual(task.clicked, ["There's an opening near the head!"])
 
 
 class TestOrder(unittest.TestCase):

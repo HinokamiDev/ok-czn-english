@@ -280,11 +280,9 @@ def handle_story_walk_dialogue(task, utils_sortie=None):
              if in_region(box, WALK_DIALOGUE_REGION, task.width, task.height) and len((box.name or "").strip()) > 3]
     if not lines or len(lines) > 2:
         return False
-    # The health bar is not always up - a walk's cut-in scene speaks in the same box without it, and stalled
-    # there ("We need to target its arms first.") - so only a fight's hand counter rules the box out.
-    utils_sortie = utils_sortie or loaded("utils_sortie")
-    if utils_sortie is not None and utils_sortie._read_hand_count(task) is not None:
-        return False
+    # Not tied to the health bar or to being out of a fight: a walk's cut-in speaks in this box without the bar
+    # ("We need to target its arms first."), and a scripted fight speaks in it mid-turn ("There's an opening near
+    # the head!") and takes no card or end-of-turn key until it is clicked on. Nothing else in a fight writes there.
     line = lines[0]
     last = getattr(task, WALK_DIALOGUE_PRESSED, None)
     if last and last[0] == line.name and time.monotonic() - last[1] < WALK_DIALOGUE_COOLDOWN:
