@@ -122,11 +122,15 @@ def watching(original, task, path=None):
     def run(*args, **kwargs):
         heartbeat(task, path)
         try:
-            return original(*args, **kwargs)
+            result = original(*args, **kwargs)
         except Exception as error:
             if type(error).__name__ not in CONTROL_FLOW:
                 event(task, "hata", f"Stopped on an error: {error!r}"[:300], path)
             raise
+        # Imported here: the snapshot module records its finding through this one.
+        from src.en.snapshot import checking
+        checking(task)
+        return result
 
     return run
 

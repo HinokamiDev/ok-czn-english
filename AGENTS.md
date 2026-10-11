@@ -68,3 +68,9 @@ ok-czn eşleşmeyen bir Epiphany'de durmak yerine `%LOCALAPPDATA%\ok-czn-hd\kara
 Cevap: aynı klasöre `karar.json` = `{"id": "<istekteki id>", "secim": <no>}`. Tıklamayı ok-czn yapar;
 sen oyuna dokunmazsın. Cevap "Ask Timeout Seconds" içinde gelmezse ok-czn Burak için duraklar.
 OCR açıklamaları satır sırası karışık okunabilir; kelimelere bak, sıraya değil.
+
+## Takılma görüntüsü
+
+Ekran 25 sn değişmezse ok-czn `%LOCALAPPDATA%\ok-czn-hd	akilma\<zaman>.png` ve aynı adla `.json`
+(OCR metinleri ve konumları) yazar, durum `takildi` olur ve mesaj görüntü yolunu içerir. Son 20 görüntü tutulur.
+Bakıcı görüntüyü ve metinleri okuyup hangi işleyicinin ekranı tanımadığını bulur; oyuna dokunmaz.
