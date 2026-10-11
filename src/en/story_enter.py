@@ -564,6 +564,35 @@ def handle_touch_to_start(task, utils_sortie=None):
     return True
 
 
+RECONNECT_QUESTION = "connection was lost"
+RECONNECT_REGION = (0.15, 0.38, 0.85, 0.53)
+CONTINUE_CAPTIONS = ("继续", "continue")
+CONTINUE_REGION = (0.50, 0.70, 0.85, 0.84)
+
+
+def handle_chaos_reconnect(task, utils_sortie=None):
+    """Continue a Chaos run the game offers to resume after a restart.
+
+    Read live: "Chaos connection was lost unexpectedly. Would you like to continue?" at (0.501, 0.457), with Escape at
+    (0.377, 0.766) and Continue (继续) at (0.642, 0.767). The dialogue handler kept tapping the question instead.
+
+    Returns:
+        True when Continue was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, RECONNECT_QUESTION, RECONNECT_REGION) is None:
+        return False
+    button = next((found for caption in CONTINUE_CAPTIONS
+                   for found in [text_in_region(task, caption, CONTINUE_REGION)] if found is not None), None)
+    if button is None:
+        return False
+    task.log_info("the game offers to resume the interrupted Chaos run, continuing it")
+    task.click_box(button)
+    task.sleep(3)
+    return True
+
+
 def handle_fork_steps(task, utils_sortie=None):
     """Run the steps this fork adds to the Chaos and Sortie modes, first that answers wins; reloadable like Story's."""
     for step in GENERAL_STEPS:
@@ -575,7 +604,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_touch_to_start", "handle_speech_box_anywhere")
+GENERAL_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
 
@@ -591,7 +620,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_touch_to_start", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
+STORY_STEPS = ("handle_touch_to_start", "handle_chaos_reconnect", "handle_stage_complete", "walk_dialogue_step", "handle_observe_stage", "handle_next_chapter",
                "handle_map_drag")
 
 

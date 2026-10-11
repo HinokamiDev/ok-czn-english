@@ -356,6 +356,19 @@ class TestTitleScreen(unittest.TestCase):
         self.assertEqual(task.clicked, ["TOUCHTOSTART"])
 
 
+class TestChaosReconnect(unittest.TestCase):
+    def test_the_interrupted_run_is_continued_not_escaped(self):
+        from src.en.story_enter import handle_fork_steps
+        # The live dialogue after the game was restarted mid-run.
+        task = FakeTask([FakeBox("Chaos connection was lost unexpectedly. Would you like to continue?", 0.501, 0.457,
+                                 width=900),
+                         FakeBox("Chaos Missions", 0.352, 0.584), FakeBox("Burning Life", 0.664, 0.585),
+                         FakeBox("Escape", 0.377, 0.766), FakeBox("继续", 0.642, 0.767)])
+        task.frame = None
+        self.assertTrue(handle_fork_steps(task))
+        self.assertEqual(task.clicked, ["继续"])
+
+
 class TestOrder(unittest.TestCase):
     def test_magnifiers_come_before_the_walk_option(self):
         from src.en import story_enter
