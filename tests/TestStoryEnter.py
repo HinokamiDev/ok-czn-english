@@ -548,5 +548,27 @@ class TestOrder(unittest.TestCase):
                                  "handle_story_event_option", "handle_confirm"])
 
 
+    def test_the_skip_box_is_answered_before_the_skip_button_is_pressed_again(self):
+        from src.en import story_enter
+
+        def named(name):
+            function = lambda task: False  # noqa: E731
+            function.__name__ = name
+            return function
+
+        story, sortie = types.ModuleType("utils_story"), types.ModuleType("utils_sortie")
+        story.PAGE_HANDLERS = [named("handle_skip_story"), named("handle_auto_chat"), named("handle_confirm")]
+        sortie.PAGE_HANDLERS = [named("handle_close_page"), named("handle_confirm")]
+        sys.modules.update(utils_story=story, utils_sortie=sortie)
+        try:
+            story_enter.place_skip_confirm()
+            story_enter.place_skip_confirm()
+        finally:
+            del sys.modules["utils_story"], sys.modules["utils_sortie"]
+        self.assertEqual([handler.__name__ for handler in story.PAGE_HANDLERS],
+                         ["handle_skip_dialogue_confirm", "handle_skip_story", "handle_auto_chat", "handle_confirm"])
+        self.assertEqual([handler.__name__ for handler in sortie.PAGE_HANDLERS],
+                         ["handle_close_page", "handle_skip_dialogue_confirm", "handle_confirm"])
+
 if __name__ == "__main__":
     unittest.main()

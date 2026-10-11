@@ -874,13 +874,24 @@ def place_after_magnifiers():
         logger.info(f"utils_story: walk dialogue and option handlers placed at {index}, after {OPTION_AFTER}")
 
 
+# In the Story list the skip box goes ahead of the skip button: Act 4's box leaves the button visible above it, and
+# upstream pressed the button again every two seconds while the box waited (snapshot 20261011-221553).
+SKIP_ANCHOR = "handle_skip_story"
+
+
+def place_skip_confirm():
+    """Put the skip-box confirm ahead of the skip button in the Story list, ahead of the confirm handler elsewhere."""
+    insert_before(SKIP_ANCHOR, proxy(__name__, handle_skip_dialogue_confirm.__name__))
+    insert_before(CONFIRM_ANCHOR, proxy(__name__, handle_skip_dialogue_confirm.__name__))
+
+
 def install():
     """Wrap the Story stage handler once both modules are loaded."""
     utils, utils_story = loaded("utils"), loaded("utils_story")
     if utils is None or utils_story is None:
         return
     wrap(utils_story, "handle_enter_stage", lambda original: pressing_enter(original, utils), TAG)
-    insert_before(CONFIRM_ANCHOR, proxy(__name__, handle_skip_dialogue_confirm.__name__))
+    place_skip_confirm()
     wrap(utils_story, "handle_auto_chat", pressing_auto_chat_once, AUTO_CHAT_TAG)
     wrap(utils_story, "handle_view_event", looking_closer, MAGNIFIER_TAG)
     place_after_magnifiers()
