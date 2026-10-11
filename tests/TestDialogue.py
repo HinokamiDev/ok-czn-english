@@ -156,6 +156,17 @@ class TestDialogue(unittest.TestCase):
         self.assertIsNotNone(line)
         self.assertEqual(SOLDIER, line.name)
 
+    def test_a_short_line_of_narration_is_recognised(self):
+        """A Chaos run sat on this one-line inscription for two minutes, keyboard hints and all."""
+        task = FakeTask([
+            FakeBox("3045/3045", 0.212, 0.040, 0.10),
+            FakeBox("373", 0.650, 0.051, 0.02),
+            FakeBox("Q", 0.959, 0.080, 0.01),
+            FakeBox("The inscription on the statue reads:", 0.494, 0.836, 0.316),
+            FakeBox("Space", 0.937, 0.912, 0.04),
+        ])
+        self.assertIsNotNone(narration_line(task))
+
     def test_a_two_line_narration_screen_is_recognised(self):
         self.assertIsNotNone(narration_line(two_line_narration_screen()))
 
@@ -171,6 +182,8 @@ class TestDialogue(unittest.TestCase):
             # The event prompt is wide and centred too, but it sits at the top and is not a tap target.
             ("a line high on the screen", "A single Invader mushroom has taken root here.", 0.5, 0.211, 0.5),
             ("an off centre line", "something wide but off to one side", 0.78, 0.84, 0.5),
+            # The Persona card picker's tip, the widest non-prose line the corpus holds in the band.
+            ("a tutorial tip", "Tap and hold the card to view its details.", 0.5, 0.858, 0.283),
             # OCR hands back empty boxes, and one wide enough would otherwise be tapped as prose.
             ("a blank reading", "   ", 0.5, 0.84, 0.6),
         ):

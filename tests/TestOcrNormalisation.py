@@ -12,11 +12,17 @@ import gettext
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "ok_tasks"))
+
+import utils  # noqa: E402
+import utils_sortie  # noqa: E402
 
 from src.en import ocr_text  # noqa: E402
+from tests.fakes import FakeBox  # noqa: E402
 
 # The prompt over the combatant list. OCR drops its full stop about half the time, and the handler that owns
 # the Purchase Card screen does nothing at all until this matches.
@@ -132,18 +138,39 @@ class TestOcrNormalisation(unittest.TestCase):
             ("Select 1 card(s) to Convert.", "请选择1张转换的卡牌"),
             ("Select 3 card(s) to Duplicate.", "请选择3张复制的卡牌"),
             ("Select up to 2 card(s) to Remove.", "请选择2张要移除的卡牌"),
+            ("Select up to 2 card(s) to Discard (min 0).", "请选择2张卡牌"),
+            ("Select 2 card(s) to Exhaust.", "请选择2张卡牌"),
+            ("Select 1 card(s) to move to Draw Pile.", "请选择1张要移动至抽牌堆的卡牌"),
             ("Select second Combatant to join.", "请选择加入的主战员"),
             ("Select fourth Combatant to join.", "请选择加入的主战员"),
+            # The ordinal is drawn in another colour, and OCR usually reads it glued to the word before.
+            ("Selectfourth Combatant to join.", "请选择加入的主战员"),
+            ("Choose 1 card to obtain Epiphany.", "请选择1张获得闪光的卡牌"),
+            # What OCR hands back once it has split the count off into a box of its own.
+            ("card to obtain Epiphany", "请选择张获得闪光的卡牌"),
         ):
             with self.subTest(caption=caption):
                 self.assertEqual(expected, ocr_text.pattern_fix(caption))
 
-    def test_an_action_no_handler_wants_is_left_in_english(self):
-        """The client ships fifty of these. Inventing a literal for one nothing reads would be worse."""
-        for caption in ("Select 1 card(s) to Discard.", "Select 2 card(s) to Exhaust.",
-                        "Select 1 card(s) to move to Draw Pile."):
+    def test_an_action_no_handler_names_never_reaches_the_card_picker(self):
+        """The neutral literal must not carry an action word that sends the out-of-battle picker after a card."""
+        for caption in ("Select 1 card(s) to Upgrade.", "Select up to 2 card(s) to Discard (min 0)."):
             with self.subTest(caption=caption):
-                self.assertIsNone(ocr_text.pattern_fix(caption))
+                task = SimpleNamespace(width=1920, height=1080, all_texts=[FakeBox(ocr_text.pattern_fix(caption), 0.198, 0.039, width=700)])
+                self.assertFalse(utils.handle_select_card(task))
+
+    def test_upstream_answers_every_in_battle_hand_picker(self):
+        """An English caption here left upstream waiting on a prompt it could not read, and the turn froze."""
+        for caption in ("Select up to 2 card(s) to Discard (min 0).", "Select 2 card(s) to Exhaust.",
+                        "Select 1 card(s) to move to Draw Pile.", "Select 1 card(s) to Upgrade."):
+            with self.subTest(caption=caption):
+                clicks = []
+                texts = [FakeBox(ocr_text.pattern_fix(caption), 0.5, 0.111, width=700), FakeBox("04/10", 0.513, 0.972)]
+                task = SimpleNamespace(width=1920, height=1080, all_texts=texts, ocr=lambda: texts,
+                                       click=lambda x, y: clicks.append((x, y)), move_relative=lambda x, y: None,
+                                       sleep=lambda seconds: None, log_info=lambda message: None)
+                self.assertTrue(utils_sortie.handle_battle_hand_select(task))
+                self.assertIn((0.934, 0.883), clicks)
 
     def test_ordinary_text_is_never_rewritten_by_a_rule(self):
         for text in ("Tap and hold the card to view its details.", "Card Reward", "Prepare for Battle", ""):

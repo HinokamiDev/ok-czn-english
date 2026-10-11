@@ -20,12 +20,16 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "ok_tasks"))
+
+import utils  # noqa: E402
 
 from src.en.events import (  # noqa: E402
     ATTACK, ATTACK_RANK, BESIDES_CREDITS, CREDIT_RANK, DESIRE_RANK, DIALOGUE, DIALOGUE_RANK, HEALTH_COST,
     HEALTH_COST_RANK, MIN_LATIN_MARKER_LENGTH, MIN_MARKER_LENGTH, OFF_FACTION_RANK, QUIT, QUIT_RANK,
     REWARD_RANK, RankingChoice, SPARK, SPARK_RANK, drop_unwanted, find_chests, fold, open_a_chest, order, rank,
 )
+from src.en.enter import OPTION_TEMPLATES, on_the_button  # noqa: E402
 from tests.fakes import HEIGHT, WIDTH, FakeBox  # noqa: E402
 
 # The three the mushroom event offers, which is where the lore option was caught looping.
@@ -370,6 +374,31 @@ class TestTreasureChests(unittest.TestCase):
         task = SimpleNamespace(frame=self.frame_with_band(), all_texts=[], sleep=lambda seconds: None)
         utils = SimpleNamespace(_move_and_click=lambda *_: self.fail("clicked off the event screen"))
         self.assertFalse(open_a_chest(task, utils))
+
+
+class TestEnterButton(unittest.TestCase):
+    """Upstream presses any "Enter" low on the screen, and the Global client now prints one as a key hint on most buttons."""
+
+    def test_only_the_round_button_is_pressed_and_never_over_an_option(self):
+        handle_enter = on_the_button(utils)(utils.handle_enter)
+        for case, enter_at, option_up, pressed in (
+            # The Enter the run moves on with, and the only one upstream ever pressed before the key hints arrived.
+            ("round button", (0.946, 0.923), False, True),
+            # Pressing it here attacked the event object instead - "Cannot attack." on the rally signal.
+            ("event option up", (0.946, 0.923), True, False),
+            # The key hint on the Select button, pressed over and over before any card was chosen.
+            ("key hint", (0.844, 0.894), False, False),
+        ):
+            with self.subTest(case):
+                clicked = []
+                task = SimpleNamespace(
+                    all_texts=[FakeBox("进入", *enter_at)], width=WIDTH, height=HEIGHT,
+                    box_of_screen=lambda *region: region, click_box=clicked.append,
+                    find_one=lambda feature_name=None, **_: object() if option_up and feature_name == OPTION_TEMPLATES else None,
+                    log_info=lambda message: None, sleep=lambda seconds: None,
+                )
+                self.assertEqual(pressed, handle_enter(task))
+                self.assertEqual(int(pressed), len(clicked))
 
 
 if __name__ == "__main__":

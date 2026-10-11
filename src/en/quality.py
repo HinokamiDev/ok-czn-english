@@ -21,11 +21,10 @@ logger = Logger.get_logger(__name__)
 # and buying it is how you end a run with no Credits and nothing to show.
 WORTH_TAKING = ("UNIQUE", "LEGEND")
 
-# The client's internal class ids, and what the game calls them on screen. Only one differs, but it is the
-# one that matters: a combatant the game calls a Vanguard is a "knight" in the data.
+# The client's internal class ids, and what the game calls them on screen.
 CLASS_NAMES = {
     "striker": "Striker",
-    "knight": "Vanguard",
+    "vanguard": "Vanguard",
     "ranger": "Ranger",
     "hunter": "Hunter",
     "psionic": "Psionic",

@@ -11,7 +11,7 @@ from src.en import quality
 from src.en.dashboard import COMBATANTS, UNREAD
 from src.en.handlers import insert_before, loaded, register, replace
 from src.en.overrides import FARMED_COMBATANT
-from src.en.screen import combatant_names
+from src.en.screen import combatant_names, same_line
 
 logger = Logger.get_logger(__name__)
 
@@ -87,8 +87,25 @@ def team_of(task):
     return getattr(task, TEAM, set())
 
 
+def stacked(upper, lower):
+    """Say whether two boxes are consecutive lines of one wrapped caption.
+
+    Args:
+        upper: The box that would be the first line.
+        lower: The box that would be the second.
+
+    Returns:
+        True when `lower` is the next line down, starting within one line height of `upper`, and the two share a centre.
+    """
+    within_a_line = lower.y - (upper.y + upper.height) < upper.height
+    shared_centre = abs((upper.x + upper.width / 2) - (lower.x + lower.width / 2)) < max(upper.width, lower.width) / 2
+    return not same_line(upper, lower) and within_a_line and shared_centre
+
+
 def on_screen(task):
-    """List the text the reader currently sees.
+    """List the text the reader currently sees, reading a wrapped name whole.
+
+    The two halves of a wrapped name come back as separate boxes, and a half can be another card's whole name.
 
     Args:
         task: The running task.
@@ -96,7 +113,18 @@ def on_screen(task):
     Returns:
         Every box's text, which is what the item names are graded from.
     """
-    return [box.name for box in (task.all_texts or []) if box.name]
+    boxes = [box for box in (task.all_texts or []) if box.name]
+    names = {id(box): box.name for box in boxes}
+    for upper in boxes:
+        for lower in boxes:
+            # A line already taken as the second half of a name cannot start another.
+            if lower is upper or id(upper) not in names or not stacked(upper, lower):
+                continue
+            joined = f"{upper.name} {lower.name}"
+            if quality.CARD_INDEX.look_up(joined) or quality.EQUIPMENT_INDEX.look_up(joined):
+                names[id(upper)] = joined
+                names.pop(id(lower), None)
+    return list(names.values())
 
 
 def generated_list(task, key, farmed=""):
@@ -111,15 +139,16 @@ def generated_list(task, key, farmed=""):
     Returns:
         The names worth taking, best first, or None when this key is not one we fill in.
     """
+    slot = EQUIPMENT_KEYS.get(key)
+    cards = key in (CARD_KEY, SORTIE_CARD_KEY)
+    if slot is None and not cards:
+        return None
     # Only what is on screen. Offering every Legend and Unique name would give upstream's plain-containment
     # matcher 625 chances to pair a short name with a longer one and buy the wrong thing.
     names = on_screen(task)
     classes = team_of(task)
-    if key in (CARD_KEY, SORTIE_CARD_KEY):
+    if cards:
         return quality.worth_taking(names, classes)
-    slot = EQUIPMENT_KEYS.get(key)
-    if slot is None:
-        return None
     # Ordered by who is going to wear it. Rarity still decides, so this only separates pieces that were
     # otherwise going to be picked between on their names.
     return [name for name in quality.worth_taking(names, classes, cards=False, suited_to=farmed)

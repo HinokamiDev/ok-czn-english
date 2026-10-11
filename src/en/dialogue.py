@@ -26,9 +26,9 @@ logger = Logger.get_logger(__name__)
 # top to bottom, and the button and tooltip rows that share the lower screen start at 0.908, so the band
 # closes above one and below the other. The line also has to be near the middle to count.
 NARRATION_REGION = (0.35, 0.80, 0.65, 0.90)
-# How wide it has to be. Narration measured 0.51 to 0.72 and an option card's text 0.17, so this sits clear
-# of both rather than just past one of them.
-MIN_WIDTH = 0.35
+# How wide it has to be. Across the capture corpus prose measured 0.316 to 0.798, and the widest other line in
+# the band was the Persona card picker's tip at 0.283, so this splits the two.
+MIN_WIDTH = 0.30
 # How much text a narration screen can carry. It dims the frame and hides the HUD, so the measured ones read
 # three to six boxes. A screen busy enough to hold ten is showing something else and is not ours to tap.
 MAX_TEXT_BOXES = 10

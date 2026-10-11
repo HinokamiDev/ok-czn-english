@@ -10,6 +10,7 @@ give up, not where the price list says a purchase becomes possible.
 """
 
 import sys
+import types
 import unittest
 from functools import partial
 from pathlib import Path
@@ -19,7 +20,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tests.fakes import FakeBox as Box  # noqa: E402
 
-from src.en.shop import SHOP_FLOOR, free_refresh_box, refusing_free_refresh  # noqa: E402
+from src.en.shop import SHOP_FLOOR, free_refresh_box, reading_names_whole, refusing_free_refresh  # noqa: E402
 
 WIDTH, HEIGHT = 1920, 1080
 # Where the shop draws its free-refresh button, measured off the captured screen.
@@ -123,6 +124,28 @@ class TestRefusingFreeRefresh(unittest.TestCase):
 
         wrapped = refusing_free_refresh(recording_handler([]), unexpected)
         self.assertTrue(wrapped(shop_screen(free=False)))
+
+
+class TestReadingNamesWhole(unittest.TestCase):
+    """The shelf wraps a long name onto two lines, which OCR lists in either order."""
+
+    CASES = (
+        # Boxed exactly as OCR boxed the shelf, second line listed first.
+        ("a wrapped name", [Box("Judgment", 1720, 735.5, width=140, height=39, units="pixels"),
+                            Box("Instant", 1715, 700.5, width=98, height=33, units="pixels")], "Instant Judgment"),
+        # A pixel higher on the right must not put the right-hand box first.
+        ("one line in two boxes", [Box("Torch", 980, 740, width=90, height=33, units="pixels"),
+                                   Box("Distortion:", 880, 741, width=110, height=33, units="pixels")], "Distortion: Torch"),
+    )
+
+    def test_a_name_is_read_line_by_line_with_spaces(self):
+        for why, boxes, expected in self.CASES:
+            with self.subTest(why):
+                utils = types.SimpleNamespace(_get_region_text=None)
+                seen = []
+                wrapped = reading_names_whole(lambda task: seen.append(utils._get_region_text(task, (0, 0, 1, 1))), utils)
+                wrapped(FakeTask(boxes))
+                self.assertEqual(seen, [expected])
 
 
 if __name__ == "__main__":

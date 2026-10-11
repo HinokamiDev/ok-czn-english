@@ -24,7 +24,7 @@ UPSTREAM_NAMES = {
     "utils": (
         "_current_equipment_for_slot", "_equipment_info", "_equipment_priority", "_equipment_quality_at", "_equipment_state", "_rgb_is_close",
         "_find_member_level_tags", "_find_target_member_index",
-        "_get_card_list", "_get_config_value", "_get_current_credit", "_get_game_text", "_member_deck_state",
+        "_get_card_list", "_get_config_value", "_get_current_credit", "_get_game_text", "_get_region_text", "_member_deck_state",
         "_member_equipment_qualities", "_move_and_click", "_should_install_equipment", "find_box_at_point",
         "handle_card_assign", "handle_card_reward", "handle_confirm", "handle_equipment", "handle_event_task",
         "handle_expedition_result", "handle_negotiation", "handle_shop", "handle_stuck_log",
@@ -99,3 +99,11 @@ class TestUpstreamManifest(unittest.TestCase):
 
         self.assertTrue(hasattr(BaseTask, "after_init"))
         self.assertTrue(hasattr(BaseTask, "load_config"))
+
+    def test_the_framework_still_offers_the_emulator_seams(self):
+        # `devices.py` replaces the running-emulator scan and classifies by name with `is_emulator`. A rename leaves the
+        # replacement set on nothing, so Refresh quietly goes back to reading every process's command line.
+        from ok.alas.emulator_windows import Emulator, EmulatorManager
+
+        self.assertTrue(hasattr(EmulatorManager, "iter_running_emulator"))
+        self.assertTrue(Emulator.is_emulator("HD-Player.exe"))

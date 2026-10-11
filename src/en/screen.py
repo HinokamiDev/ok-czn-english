@@ -104,6 +104,42 @@ def text_in_region(task, needle, region):
     return None
 
 
+def same_line(above, box):
+    """Say whether a box sits on the same line of text as one above it rather than on the line below.
+
+    The two lines of a wrapped shelf name come back boxed a few pixels into each other - Instant over Judgment by 1,
+    Bottomless over Hunger by 3 - so only a box starting in the top half of the other counts as the same line.
+
+    Args:
+        above: The box nearer the top of the screen.
+        box: The box being placed.
+
+    Returns:
+        True when `box` starts within the top half of `above`.
+    """
+    return box.y < above.y + above.height / 2
+
+
+def lines_in(task, region):
+    """Read a region's text a line at a time, top to bottom and left to right, with a space between the parts.
+
+    Args:
+        task: The running task, whose `all_texts` holds the current OCR pass.
+        region: A `(left, top, right, bottom)` tuple in screen fractions.
+
+    Returns:
+        The text, or an empty string when nothing is in the region.
+    """
+    boxes = [box for box in getattr(task, "all_texts", None) or [] if box.name.strip() and in_region(box, region, task.width, task.height)]
+    lines = []
+    for box in sorted(boxes, key=lambda box: box.y):
+        if lines and same_line(lines[-1][0], box):
+            lines[-1].append(box)
+        else:
+            lines.append([box])
+    return " ".join(box.name.strip() for line in lines for box in sorted(line, key=lambda box: box.x))
+
+
 def frame_of(task):
     """Take the frame to read, once, for the whole of one answer.
 

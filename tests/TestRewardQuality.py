@@ -17,6 +17,7 @@ from src.en.game_quality import (  # noqa: E402
 )
 from src.en.game_quality import COMBATANT_TAG_WEIGHTS, EQUIPMENT_TAGS  # noqa: E402
 from src.en.hand_tags import HAND_TAGS  # noqa: E402
+from tests.fakes import FakeBox  # noqa: E402
 from src.en.quality import (  # noqa: E402
     CLASS_NAMES, TAGS, WORTH_TAKING, fold, index, named, one_edit_apart, slot_of, sorted_letters, suits,
     team_classes, unconfused, usable_by, worth_taking,
@@ -27,7 +28,7 @@ SHOP_CARDS = ["Prepare forBattle", "Protectiveshout", "Tactical Action", "Wander
 SHOP_EQUIPMENT = ["Cloud-WalkingShoes", "Sadism", "TacticalReformation", "Gladiator'sHelmet",
                   "Scout's CombatBoots", "Crimson Sword"]
 
-# The game calls these a Vanguard and two Controllers. "knight" is the data's name for Vanguard.
+# The game calls these a Vanguard and two Controllers.
 TEAM = ["Nine", "Orlea", "Tiphera"]
 
 # One Dellang Shop shelf and the Purchase Card screen that confirms buying from it, both exactly as the
@@ -36,6 +37,11 @@ LOOPING_SHELF = ["售罄", "Gauntlets of", "Protection", "Reorganize", "Rally", 
                  "On sale", "200140", "105", "35", "96", "3/3", "免费", "Remaining: 5", "离开"]
 LOOPING_PURCHASE = ["购买卡牌", "请选择要接受卡牌的主战员", "无法获得", "攻击力", "Reorganize", "防御力",
                     "技能", "LEVEL", "60", "等级", "[Exhaust ]", "Draw 3", "取消", "购买", "105"]
+# A shelf card whose name the client wraps onto two lines, boxed exactly as OCR boxed it, and its Purchase Card screen.
+# The two lines overlap by a pixel, and "Judgment" alone is another card's name.
+WRAPPED_SHELF = [FakeBox("Instant", 1715, 700.5, width=98, height=33, units="pixels"),
+                 FakeBox("Judgment", 1720, 735.5, width=140, height=39, units="pixels")]
+WRAPPED_PURCHASE = ["购买卡牌", "Instant Judgment", "攻击力", "取消", "购买", "60"]
 
 
 def unusable_by(classes):
@@ -51,18 +57,12 @@ def unusable_by(classes):
                 if not set(restricted_to) & classes and CARD_RARITY.get(name) in WORTH_TAKING)
 
 
-class FakeBox:
-    """An OCR box, carrying only the text the reward code reads."""
-
-    def __init__(self, name):
-        self.name = name
-
-
 class FakeTask:
     """A task holding one OCR pass, the info table, and once the run has started the team."""
 
     def __init__(self, texts=(), team=None, info=None):
-        self.all_texts = [FakeBox(text) for text in texts]
+        # All on one row, so none reads as the two lines of one wrapped name.
+        self.all_texts = [text if isinstance(text, FakeBox) else FakeBox(text, 0.5, 0.5) for text in texts]
         self.info = dict(info or {})
         if team is not None:
             setattr(self, rewards.TEAM, team)
@@ -93,10 +93,10 @@ class TestRewardQuality(unittest.TestCase):
         self.assertEqual(1, slot_of("Cloud-WalkingShoes"))
 
     def test_the_team_resolves_to_its_classes(self):
-        self.assertEqual({"knight", "controller"}, team_classes(TEAM))
+        self.assertEqual({"vanguard", "controller"}, team_classes(TEAM))
 
     def test_classes_are_logged_the_way_the_game_names_them(self):
-        """The data calls a Vanguard a knight, and a log nobody recognises is worse than no log."""
+        """A log in the data's own ids, rather than the names on screen, is one nobody recognises."""
         self.assertEqual(["Controller", "Vanguard"], named(team_classes(TEAM)))
 
     def test_every_class_in_the_data_has_an_in_game_name(self):
@@ -111,35 +111,35 @@ class TestRewardQuality(unittest.TestCase):
 
     def test_only_the_best_grades_are_taken(self):
         """Rare is most of what a shop stocks; buying it is how a run ends with nothing."""
-        taken = worth_taking(SHOP_CARDS, {"knight", "controller"})
+        taken = worth_taking(SHOP_CARDS, {"vanguard", "controller"})
         self.assertEqual(["Prepare for Battle"], taken)
         for name in taken:
             self.assertIn(CARD_RARITY[name], WORTH_TAKING)
 
     def test_equipment_is_graded_the_same_way(self):
-        taken = worth_taking(SHOP_EQUIPMENT, {"knight", "controller"}, cards=False)
+        taken = worth_taking(SHOP_EQUIPMENT, {"vanguard", "controller"}, cards=False)
         self.assertEqual(["Cloud-Walking Shoes", "Crimson Sword"], taken)
 
     def test_a_card_no_one_can_hold_is_skipped(self):
         """The one thing the class data is good for: not paying for an unusable Legend."""
-        ranger_only = unusable_by({"knight", "controller"})
-        self.assertFalse(usable_by(ranger_only, {"knight", "controller"}))
-        self.assertEqual([], worth_taking([ranger_only], {"knight", "controller"}))
+        ranger_only = unusable_by({"vanguard", "controller"})
+        self.assertFalse(usable_by(ranger_only, {"vanguard", "controller"}))
+        self.assertEqual([], worth_taking([ranger_only], {"vanguard", "controller"}))
 
     def test_an_unknown_team_filters_nothing(self):
         """Better to buy a card nobody can hold than to skip everything because a name was misread."""
-        ranger_only = unusable_by({"knight", "controller"})
+        ranger_only = unusable_by({"vanguard", "controller"})
         self.assertTrue(usable_by(ranger_only, set()))
 
     def test_the_generated_list_holds_only_what_is_on_screen(self):
         """Offering all 625 good names would invite upstream's loose matching to pair the wrong ones."""
-        task = FakeTask(SHOP_CARDS, {"knight", "controller"})
+        task = FakeTask(SHOP_CARDS, {"vanguard", "controller"})
         generated = rewards.generated_list(task, rewards.CARD_KEY)
         self.assertEqual(["Prepare for Battle"], generated)
         self.assertLess(len(generated), 10)
 
     def test_equipment_is_offered_to_its_own_slot_only(self):
-        task = FakeTask(SHOP_EQUIPMENT, {"knight", "controller"})
+        task = FakeTask(SHOP_EQUIPMENT, {"vanguard", "controller"})
         by_slot = {slot: rewards.generated_list(task, key) for key, slot in rewards.EQUIPMENT_KEYS.items()}
         self.assertEqual(["Crimson Sword"], by_slot[0])
         self.assertEqual(["Cloud-Walking Shoes"], by_slot[1])
@@ -152,12 +152,12 @@ class TestRewardQuality(unittest.TestCase):
         """The generated list is a fallback, never an override."""
         reader = rewards.filling_in(lambda task, key, default: ["Absolute Zero"], "utils")
         self.assertEqual(["Absolute Zero"],
-                         reader(FakeTask(SHOP_CARDS, {"knight"}), rewards.CARD_KEY, []))
+                         reader(FakeTask(SHOP_CARDS, {"vanguard"}), rewards.CARD_KEY, []))
 
     def test_an_empty_list_is_filled_in(self):
         reader = rewards.filling_in(lambda task, key, default: [], "utils")
         self.assertEqual(["Prepare for Battle"],
-                         reader(FakeTask(SHOP_CARDS, {"knight", "controller"}), rewards.CARD_KEY, []))
+                         reader(FakeTask(SHOP_CARDS, {"vanguard", "controller"}), rewards.CARD_KEY, []))
 
     def test_a_reading_with_no_letters_in_it_matches_nothing(self):
         # One real card is named with three geometric symbols, and folding used to reduce it to an empty
@@ -175,7 +175,7 @@ class TestRewardQuality(unittest.TestCase):
     def test_nothing_worth_taking_leaves_the_list_empty(self):
         """A shop of Commons must stay a shop of Commons, not become one it buys from."""
         reader = rewards.filling_in(lambda task, key, default: [], "utils")
-        self.assertEqual([], reader(FakeTask(["Shock", "Multishot"], {"knight"}), rewards.CARD_KEY, []))
+        self.assertEqual([], reader(FakeTask(["Shock", "Multishot"], {"vanguard"}), rewards.CARD_KEY, []))
 
 
 if __name__ == "__main__":
@@ -199,6 +199,12 @@ class TestPurchaseAgreesWithTheShop(unittest.TestCase):
         shelf = rewards.generated_list(FakeTask(LOOPING_SHELF, team=set()), rewards.CARD_KEY)
         purchase = rewards.generated_list(FakeTask(LOOPING_PURCHASE, team=set()), rewards.CARD_KEY)
         self.assertEqual(["Reorganize"], shelf)
+        self.assertEqual(shelf, purchase)
+
+    def test_a_name_wrapped_onto_two_lines_is_read_whole(self):
+        shelf = rewards.generated_list(FakeTask(WRAPPED_SHELF, team=set()), rewards.CARD_KEY)
+        purchase = rewards.generated_list(FakeTask(WRAPPED_PURCHASE, team=set()), rewards.CARD_KEY)
+        self.assertNotIn("Judgment", shelf)
         self.assertEqual(shelf, purchase)
 
 

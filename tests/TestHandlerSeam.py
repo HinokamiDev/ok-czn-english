@@ -14,7 +14,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.en import handlers  # noqa: E402
+from src.en import claims, handlers  # noqa: E402
 
 
 def named(name):
@@ -114,6 +114,55 @@ class TestHandlerSeam(unittest.TestCase):
             self.assertEqual("not a list", other.PAGE_HANDLERS)
         finally:
             sys.modules.pop(other.__name__, None)
+
+
+class TestClaims(unittest.TestCase):
+    """A debug run names the handler that took each frame, since several upstream handlers take one silently."""
+
+    def setUp(self):
+        self.module = types.ModuleType("fake_mode_for_claims")
+        def handle_negotiation(task):
+            return True
+        self.taker = handle_negotiation
+        self.module.PAGE_HANDLERS = [named("handle_close_page"), self.taker]
+        sys.modules[self.module.__name__] = self.module
+
+    def tearDown(self):
+        sys.modules.pop(self.module.__name__, None)
+
+    def run_frames(self, frames):
+        """Run the mode's loop the way every mode does, stopping at the first handler that takes the frame.
+
+        Args:
+            frames: How many frames to run.
+
+        Returns:
+            The debug lines logged.
+        """
+        task, lines = types.SimpleNamespace(), []
+        with handlers.standing_in(claims.logger, debug=lines.append):
+            for _ in range(frames):
+                next((h for h in self.module.PAGE_HANDLERS if h(task)), None)
+        return lines
+
+    def test_the_handler_that_takes_a_frame_is_named_once_until_another_does(self):
+        claims.install()
+        self.assertEqual(["frame claimed by handle_negotiation"], self.run_frames(3))
+
+    def test_wrapping_keeps_names_and_runs_once_per_load(self):
+        claims.install()
+        claims.install()
+        self.assertEqual(["handle_close_page", "handle_negotiation"], [h.__name__ for h in self.module.PAGE_HANDLERS])
+        self.assertIs(self.taker, self.module.PAGE_HANDLERS[1].__wrapped__)
+
+    def test_a_replacement_already_in_place_is_not_swapped_again(self):
+        """Every task load re-runs `replace`, which would otherwise strip the wrapper and log a replacement each time."""
+        replacement = named("handle_negotiation")
+        handlers.replace("handle_negotiation", replacement)
+        claims.install()
+        wrapped = self.module.PAGE_HANDLERS[1]
+        self.assertEqual(0, handlers.replace("handle_negotiation", replacement))
+        self.assertIs(wrapped, self.module.PAGE_HANDLERS[1])
 
 
 class TestStandingIn(unittest.TestCase):

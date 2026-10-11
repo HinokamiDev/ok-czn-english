@@ -12,7 +12,7 @@ from functools import lru_cache
 
 from src.en.game_battle import CARD_CATEGORY, CARD_COST, CARD_OWNER, COMBATANT_ATTRIBUTE, X_COST
 from src.en.game_text import DESCRIPTIONS
-from src.en.quality import fold, index
+from src.en.quality import fold, index, one_edit_apart
 
 # Action Points a turn starts with, before anything in a run changes the figure.
 BASE_ACTION_POINTS = 3
@@ -21,6 +21,9 @@ BASE_ACTION_POINTS = 3
 # Categories the game deals you rather than ones you choose. A Curse is someone else's doing and a Status
 # Ailment is damage waiting to happen, so neither is ever part of a plan.
 DEALT_TO_YOU = frozenset({"ABNORM", "CURSE"})
+# One of those that does its harm only while held - "If in hand, at the end of the turn", "If this card is in hand",
+# "When this card is Retained" - so playing it is how to be rid of it. Others, like Abyssal Erosion, hurt when played.
+HELD_HARM = re.compile(r"\b(?:if|when) (?:this card is )?in hand|if the turn ends when in hand|when this card is retained", re.I)
 # A card that only makes other cards better, so it wants to land before them.
 SETUP_CATEGORY = "POWER"
 ATTACK_CATEGORY = "ATK"
@@ -28,13 +31,17 @@ ATTACK_CATEGORY = "ATK"
 # forgiving guess: too low only risks a card that will not play, while too high would refuse it outright.
 ASSUMED_COST = 1
 
+# Cards whose "unexpected result" can end the fight outright, so they are tried before anything else is spent.
+ESCAPE_CARDS = frozenset({"Fear"})
+
 # Where a card sits in a turn, lowest first.
-PHASE_EPIPHANY = 0
-PHASE_FREE = 1
-PHASE_SETUP = 2
-PHASE_ATTACK = 3
-PHASE_OTHER = 4
-PHASE_SPENDS_EVERYTHING = 5
+PHASE_ESCAPE = 0
+PHASE_EPIPHANY = 1
+PHASE_FREE = 2
+PHASE_SETUP = 3
+PHASE_ATTACK = 4
+PHASE_OTHER = 5
+PHASE_SPENDS_EVERYTHING = 6
 
 # Roughly what one drawn card is worth, said in damage. A card drawn is about one more card played, and the
 # ordinary card costing one point does 100% damage, so that is the exchange rate the data itself suggests.
@@ -80,6 +87,7 @@ CARD_INDEX = index(CARD_COST)
 # `Defense` is here because the catalog does rewrite it, to a literal upstream's exclude list never had.
 TYPE_LABELS = ("basic attack", "basic skill", "status ailment", "attack", "skill", "curse", "power",
                "upgrade", "defense", "攻击力", "防御力", "状态异常")
+FOLDED_LABELS = tuple(fold(label) for label in TYPE_LABELS)
 # The type icon shares the label's OCR box and is read as a stray letter or two in front of it, which is why
 # `XBasic A` occurs. `src/en/ocr_text.py` trims the same way for the same reason.
 LABEL_PREFIX = 2
@@ -138,12 +146,19 @@ def is_card_name(reading):
     # Two real cards are named exactly after a label, `Attack!` and `Curse`. `ocr.po` already ruled on both:
     # the label appears under every card of that type while the card is one of 794, so the label wins. Curse
     # cards are never played voluntarily anyway, which leaves `Attack!` as the whole cost of the rule.
-    if any(fold(label) == folded for label in TYPE_LABELS):
+    if folded in FOLDED_LABELS:
         return False
-    if canonical(reading) in CARD_COST:
+    known = canonical(reading)
+    # A label misread by one letter lands on `Attack!` too, so the same ruling covers it. Live, "Attacl" under
+    # Cobalt Light was played as `Attack!` and pressed Cobalt Light's key in its place.
+    if fold(known) in FOLDED_LABELS:
+        return False
+    if known in CARD_COST:
         return True
+    if any(one_edit_apart(folded, label) for label in FOLDED_LABELS):
+        return False
     for trimmed in (folded[cut:] for cut in range(LABEL_PREFIX + 1)):
-        if trimmed and any(fold(label).startswith(trimmed) for label in TYPE_LABELS):
+        if trimmed and any(label.startswith(trimmed) for label in FOLDED_LABELS):
             return False
     return True
 
@@ -225,6 +240,42 @@ def category(name):
     return CARD_CATEGORY.get(canonical(name))
 
 
+def description(name):
+    """Give a card's effect text as the client writes it.
+
+    Args:
+        name: The card name, in any spelling.
+
+    Returns:
+        The text, or an empty string for a card the data does not carry.
+    """
+    return DESCRIPTIONS.get(canonical(name)) or ""
+
+
+def worth_clearing(name):
+    """Say whether a card dealt to you is better played than held, once nothing better is left to play.
+
+    Args:
+        name: The card name, in any spelling.
+
+    Returns:
+        True for a Curse or Status Ailment that only hurts while it sits in hand and has a fixed cost.
+    """
+    return category(name) in DEALT_TO_YOU and cost(name) != X_COST and bool(HELD_HARM.search(description(name)))
+
+
+def clearing_order(name):
+    """Order the cards worth clearing: the ones that deal damage first, then the cheapest.
+
+    Args:
+        name: The card name, in any spelling.
+
+    Returns:
+        A sort key, smallest first.
+    """
+    return "damage" not in description(name).lower(), cost(name)
+
+
 def worth_playing(name):
     """Say whether a card is one the player would ever choose to play.
 
@@ -282,6 +333,8 @@ def phase(name, board):
     Returns:
         One of the `PHASE_` values, lowest being earliest in the turn.
     """
+    if canonical(name) in ESCAPE_CARDS:
+        return PHASE_ESCAPE
     if lit_up(name, board):
         return PHASE_EPIPHANY
     price = cost(name)

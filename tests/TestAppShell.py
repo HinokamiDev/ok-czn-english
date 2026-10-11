@@ -14,7 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from ok.task.exceptions import TaskDisabledException  # noqa: E402
 
 from src.config import config  # noqa: E402
-from src.en import dashboard, layout, shell, shutdown  # noqa: E402
+from src.en import dashboard, devices, layout, monitors, shell, shutdown  # noqa: E402
 from src.en.framework import import_ui  # noqa: E402
 
 # How many passes the fake executor allows before it stops the loop, standing in for a press of Stop.
@@ -249,6 +249,69 @@ class TestAppShell(unittest.TestCase):
     def test_the_demo_hotkey_setting_is_gone_from_the_settings_tab(self):
         names = [option.name for option in config["global_configs"]]
         self.assertNotIn("Game Hotkey Config", names)
+
+
+class TestEmulatorConnect(unittest.TestCase):
+    """Refresh dials an emulator only once something is listening on its port."""
+
+    CASES = (
+        ("a closed emulator is listed without dialling it", "127.0.0.1:5555", True, {5037}, False),
+        ("a running emulator is still dialled", "127.0.0.1:16384", True, {5037, 16384}, True),
+        ("a phone on the network is always dialled", "192.168.0.20:5555", True, set(), True),
+        ("a caller that asked not to dial is left alone", "127.0.0.1:5555", False, {5555}, False),
+        ("an unreadable port table falls back to dialling", "127.0.0.1:5555", True, None, True),
+    )
+
+    def test_only_a_listening_emulator_is_dialled(self):
+        for why, addr, asked, listening, dialled in self.CASES:
+            with self.subTest(why):
+                calls = []
+                connect = devices.dialling_only_listening(lambda manager, a, try_connect=True: calls.append((a, try_connect)),
+                                                          lambda: listening)
+                connect(object(), addr, asked)
+                self.assertEqual([(addr, dialled)], calls)
+
+    def test_running_emulators_are_found_by_name_and_reported_by_path(self):
+        processes = [types.SimpleNamespace(info={"name": "HD-Player.exe"}, exe=lambda: "C:/BlueStacks_nxt/HD-Player.exe"),
+                     types.SimpleNamespace(info={"name": "chrome.exe"}, exe=lambda: self.fail("a non-emulator's path was read"))]
+        self.assertEqual(["C:/BlueStacks_nxt/HD-Player.exe"], list(devices.emulator_exes(processes)))
+
+
+class TestMonitorLeftOfTheMain(unittest.TestCase):
+    """The framework skips geometry at a negative position unless the game is in front, taking it for a minimized window."""
+
+    # What `get_window_bounds` returned for the game on the monitor left of the main one.
+    LEFT_MONITOR = (-1938, 135, 1936, 1119, 1920, 1080, 1.0)
+
+    def window(self, **fields):
+        """Build the framework's window record as it stood after its own update.
+
+        Args:
+            fields: Fields to set over a record the framework never filled in.
+
+        Returns:
+            The record.
+        """
+        record = dict(x=0, y=0, window_width=0, window_height=0, client_width=0, client_height=0, width=0, height=0,
+                      scaling=1.0, visible=False, frame_aspect_ratio=0)
+        record.update(fields)
+        return types.SimpleNamespace(**record)
+
+    def test_a_window_left_of_the_main_monitor_gets_its_geometry(self):
+        window = self.window()
+        self.assertTrue(monitors.take_geometry(window, self.LEFT_MONITOR, minimized=False))
+        self.assertEqual((-1938, 135, 1936, 1119, 1920, 1080),
+                         (window.x, window.y, window.window_width, window.window_height, window.width, window.height))
+
+    def test_a_minimized_window_is_still_skipped(self):
+        window = self.window()
+        self.assertFalse(monitors.take_geometry(window, (-32000, -32000, 160, 28, 0, 0, 1.0), minimized=True))
+        self.assertEqual(0, window.window_width)
+
+    def test_the_frame_is_cropped_to_the_game_ratio_as_the_framework_does(self):
+        window = self.window(frame_aspect_ratio=16 / 9)
+        monitors.take_geometry(window, (-1938, 135, 1936, 1239, 1920, 1200, 1.0), minimized=False)
+        self.assertEqual((1920, 1080, 1200), (window.width, window.height, window.client_height))
 
 
 class TestIdleDashboard(unittest.TestCase):

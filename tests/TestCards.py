@@ -31,6 +31,8 @@ FREE_ATTACK = "Magnum Shot"
 BIG_ATTACK = "Charge Launcher"
 # Spends every Action Point left rather than a fixed number.
 SPENDS_EVERYTHING = "Absolute Protection"
+# Costs nothing and, now and then, ends the fight outright.
+ESCAPE = "Fear"
 
 
 def hand(*names_in_order):
@@ -162,6 +164,10 @@ class TestEpiphany(unittest.TestCase):
         chosen = cards.plan(hand(BIG_ATTACK, JUSTICE_ATTACK), board)
         self.assertEqual(played(chosen), [JUSTICE_ATTACK])
 
+    def test_a_chance_to_escape_comes_before_even_the_glowing_card(self):
+        chosen = cards.plan(hand(FREE_ATTACK, JUSTICE_ATTACK, ESCAPE), cards.Board(epiphany=JUSTICE_ATTACK))
+        self.assertEqual(played(chosen)[0], ESCAPE)
+
     def test_a_glowing_curse_is_still_never_played(self):
         chosen = cards.plan(hand(CURSE, JUSTICE_ATTACK), cards.Board(epiphany=CURSE))
         self.assertNotIn(CURSE, played(chosen))
@@ -177,6 +183,12 @@ class TestTellingCardsFromLabels(unittest.TestCase):
         for label in ("Basic Attack", "Basic Skill", "Status Ailment", "Skill", "Attack"):
             with self.subTest(label=label):
                 self.assertFalse(cards.is_card_name(label))
+
+    def test_a_type_label_misread_by_one_letter_is_not_a_card(self):
+        # "Attacl" and "Attach" were read off live hands, and the fold landed both on the card `Attack!`.
+        for misread in ("Attacl", "Attach", "Jpgrade"):
+            with self.subTest(misread=misread):
+                self.assertFalse(cards.is_card_name(misread))
 
     def test_a_truncated_type_label_is_not_a_card(self):
         # "Basic Atta" was the single most common junk reading in a real Chaos recording.
