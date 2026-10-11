@@ -71,6 +71,6 @@ OCR açıklamaları satır sırası karışık okunabilir; kelimelere bak, sıra
 
 ## Takılma görüntüsü
 
-Ekran 25 sn değişmezse ok-czn `%LOCALAPPDATA%\ok-czn-hd	akilma\<zaman>.png` ve aynı adla `.json`
+Ekran 25 sn değişmezse ok-czn `%LOCALAPPDATA%\ok-czn-hd\takilma\<zaman>.png` ve aynı adla `.json`
 (OCR metinleri ve konumları) yazar, durum `takildi` olur ve mesaj görüntü yolunu içerir. Son 20 görüntü tutulur.
 Bakıcı görüntüyü ve metinleri okuyup hangi işleyicinin ekranı tanımadığını bulur; oyuna dokunmaz.
