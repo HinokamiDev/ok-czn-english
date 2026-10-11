@@ -121,6 +121,13 @@ class TestHandOver(unittest.TestCase):
         self.assertIsNone(autostart.poll(self.executor, self.controller))
         self.assertEqual(self.controller.started, [])
 
+    def test_no_return_before_the_awaited_run_has_begun(self):
+        # Live: the app opened with nothing running and went straight back to Story, before Chaos started.
+        self.story.enabled = False
+        autostart.write_return("ChaosMode")
+        self.assertIsNone(autostart.poll(self.executor, self.controller))
+        self.assertEqual(self.controller.started, [])
+
 
 if __name__ == "__main__":
     unittest.main()

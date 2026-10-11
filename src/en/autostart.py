@@ -43,7 +43,22 @@ def request_switch(mode, then_story=False):
     folder.mkdir(parents=True, exist_ok=True)
     (folder / SWITCH_NAME).write_text(json.dumps({"mod": mode}), encoding="utf-8")
     if then_story:
-        (folder / RETURN_NAME).write_text(json.dumps({"mod": "StoryMode"}), encoding="utf-8")
+        write_return(mode)
+
+
+def write_return(after, seen=False):
+    """Ask for the Story mode once `after` has run and stopped.
+
+    Args:
+        after: The class name of the mode whose run has to end first.
+        seen: Whether that mode has been seen running yet. Until it has, nothing running means it has not started,
+            not that it is done - the first version returned to Story the moment the app opened, before the Chaos
+            mode it was waiting on had even begun.
+    """
+    folder = status.PATH.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / RETURN_NAME).write_text(json.dumps({"mod": "StoryMode", "after": after, "seen": seen}),
+                                      encoding="utf-8")
 
 
 def take_request(path=None):
@@ -99,6 +114,31 @@ def running(executor):
             if task.__class__.__name__ in MODES and getattr(task, "enabled", False)]
 
 
+def due_return(executor, path):
+    """Say whether the return to the Story mode is due, keeping track of the run it waits on.
+
+    Returns:
+        "StoryMode" once the awaited mode has run and nothing runs any more, otherwise None.
+    """
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        path.unlink(missing_ok=True)
+        return None
+    after = data.get("after")
+    names = [task.__class__.__name__ for task in running(executor)]
+    if after in names:
+        if not data.get("seen"):
+            write_return(after, seen=True)
+        return None
+    if names or not data.get("seen"):
+        return None
+    path.unlink(missing_ok=True)
+    return "StoryMode"
+
+
 def poll(executor, start_controller):
     """Carry out a requested hand-over, or the return to the Story mode once nothing runs.
 
@@ -108,9 +148,7 @@ def poll(executor, start_controller):
     folder = status.PATH.parent
     wanted = take_request(folder / SWITCH_NAME)
     if wanted is None:
-        if not (folder / RETURN_NAME).exists() or running(executor):
-            return None
-        wanted = take_request(folder / RETURN_NAME)
+        wanted = due_return(executor, folder / RETURN_NAME)
         if wanted is None:
             return None
     task = next((task for task in executor.get_all_tasks() if task.__class__.__name__ == wanted), None)
