@@ -37,6 +37,17 @@ SORTIE_OFFER = "handle_battle_card_choice"
 # catalog's neutral form) left the fight waiting: only Sortie's list has upstream's hand picker. It picks at random,
 # as it does in Sortie - the neutral caption no longer says whether the card is kept or lost.
 SORTIE_HAND_PICK = "handle_battle_hand_select"
+# Upstream's picker also chose among the cards whose names it read, and the game had dimmed every card but the one it
+# would take - so it picked a dimmed card, confirmed nothing, and tried again every six seconds. The card the game
+# allows is lit: on the live capture its column of the hand averaged 100-175 grey, the dimmed ones 17-76.
+HAND_BAND = (0.80, 0.92)
+HAND_SPAN = (0.15, 0.85)
+HAND_WINDOW = 0.06
+HAND_LIT = 90
+HAND_CARD_Y = 0.84
+HAND_CONFIRM = (0.934, 0.883)
+HAND_PROMPT_POINT = (0.5, 0.111)
+HAND_COUNTER_POINT = (0.505, 0.971)
 FINISH_TURN = "finishturn"
 FINISH_TURN_REGION = (0.844, 0.782, 0.998, 0.990)
 # Held on the task.
@@ -108,10 +119,69 @@ def answer_cards_left(task, now):
     return True
 
 
+def lit_cards(frame, need):
+    """Find the cards the game leaves lit for a pick from the hand.
+
+    Args:
+        frame: The BGR frame.
+        need: How many cards are asked for.
+
+    Returns:
+        Up to `need` card centres as screen-fraction x, brightest first; empty when nothing stands out.
+    """
+    import numpy as np
+
+    if frame is None:
+        return []
+    height, width = frame.shape[:2]
+    band = frame[int(HAND_BAND[0] * height):int(HAND_BAND[1] * height)]
+    columns = (band.mean(axis=2) if band.ndim == 3 else band).mean(axis=0)
+    window = max(1, int(HAND_WINDOW * width))
+    smooth = np.convolve(columns, np.ones(window) / window, mode="same")
+    left, right = int(HAND_SPAN[0] * width), int(HAND_SPAN[1] * width)
+    picks = []
+    order = np.argsort(smooth[left:right])[::-1] + left
+    for x in order:
+        if smooth[x] < HAND_LIT or len(picks) >= need:
+            break
+        if all(abs(x - other) > 2 * window for other in picks):
+            picks.append(int(x))
+    return [x / width for x in picks]
+
+
+def pick_from_hand(task, utils):
+    """Answer a pick from the hand by its lit cards, then confirm.
+
+    Returns:
+        True when the prompt was on screen and answered.
+    """
+    import re
+
+    prompt = utils.find_box_at_point(task, *HAND_PROMPT_POINT)
+    found = re.search(r"请选择(?=.*卡牌).*?(\d+)张", prompt.name) if prompt else None
+    counter = utils.find_box_at_point(task, *HAND_COUNTER_POINT)
+    if not found or not (counter and re.search(r"\d+/10", counter.name)):
+        return False
+    need = int(found.group(1))
+    picks = lit_cards(getattr(task, "frame", None), need)
+    if not picks:
+        return False
+    task.log_info(f"pick {need} from the hand: the game lit the card(s) at {[round(x, 3) for x in picks]}")
+    for x in picks:
+        task.click_relative(x, HAND_CARD_Y)
+        task.sleep(1)
+    task.click_relative(*HAND_CONFIRM)
+    task.sleep(1)
+    return True
+
+
 def handle_story_fight_without_auto(task, utils_sortie=None, now=None):
     """Run `taking_over`, so that a fault in it costs this frame and not the whole Story run."""
     try:
         if answer_cards_left(task, time.monotonic() if now is None else now):
+            return True
+        utils = loaded("utils")
+        if utils is not None and pick_from_hand(task, utils):
             return True
         hand_pick = sortie_handler(SORTIE_HAND_PICK)
         if hand_pick is not None and hand_pick(task):

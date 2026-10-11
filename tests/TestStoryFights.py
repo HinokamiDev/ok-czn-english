@@ -143,6 +143,20 @@ class TestHandPick(unittest.TestCase):
         self.assertEqual(picked, [1])
 
 
+class TestLitCards(unittest.TestCase):
+    def test_the_one_card_the_game_lit_is_found(self):
+        import cv2
+        frame = cv2.imread(str(Path(__file__).resolve().parent / "images" / "hand_select_exhaust.png"))
+        picks = story_fights.lit_cards(frame, 1)
+        self.assertEqual(len(picks), 1)
+        # "Hew (Extreme) Lv.2", the rightmost card, centred near x 0.70 on the live capture.
+        self.assertTrue(0.62 <= picks[0] <= 0.78, picks)
+
+    def test_a_dark_hand_gives_nothing(self):
+        import numpy as np
+        self.assertEqual(story_fights.lit_cards(np.full((720, 1280, 3), 30, dtype=np.uint8), 1), [])
+
+
 class TestNeverStopsTheRun(unittest.TestCase):
     def test_a_fault_costs_the_frame_not_the_run(self):
         broken = types.SimpleNamespace(_read_hand_count=lambda task: 1 / 0)
