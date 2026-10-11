@@ -88,5 +88,21 @@ class TestNeverStopsTheRun(unittest.TestCase):
         self.assertFalse(handle_story_fight_without_auto(FakeTask(), broken, now=0))
 
 
+class TestOcrNoise(unittest.TestCase):
+    def test_names_read_differently_each_frame_do_not_hide_an_idle_fight(self):
+        played = []
+        handlers = {story_fights.SORTIE_PLAYER: lambda task: played.append(1) or True,
+                    story_fights.SORTIE_OFFER: lambda task: False}
+        with patch.object(story_fights, "sortie_handler", lambda name: handlers.get(name)):
+            task, fight = FakeTask(), Fight()
+            # The live run read one 5-card hand as these, frame after frame.
+            readings = [["onclad)", "Experienced Strik", "Fatal Strike", "Fighting Spirit"],
+                        ["Fatal Strike", "Fighting Spirit"], ["Experienced Strik", "Fatal Strike", "Fighting Spirit"]]
+            for second in range(0, IDLE_SECONDS + 4, 2):
+                fight.names = readings[second % 3]
+                handle_story_fight_without_auto(task, fight.module, now=second)
+        self.assertTrue(played)
+
+
 if __name__ == "__main__":
     unittest.main()

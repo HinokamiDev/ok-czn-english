@@ -46,13 +46,12 @@ def sortie_handler(name):
 
 
 def hand_of(task, utils_sortie):
-    """Read the fight's hand counter and card names, or None when no fight is on screen."""
-    count = utils_sortie._read_hand_count(task)
-    if count is None:
-        return None
-    # Upstream hands back the OCR boxes themselves, not their text.
-    names = (getattr(box, "name", box) for box in utils_sortie._hand_card_names(task) or [])
-    return count, tuple(sorted(str(name) for name in names))
+    """Read the fight's hand counter, or None when no fight is on screen.
+
+    The counter alone, not the card names: OCR reads the same hand as 2, 3 or 4 part-names from one frame to the
+    next, so a name list never held still and an idle fight was never noticed. The counter read a steady 5.
+    """
+    return utils_sortie._read_hand_count(task)
 
 
 def handle_story_fight_without_auto(task, utils_sortie=None, now=None):
