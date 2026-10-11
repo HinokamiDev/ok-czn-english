@@ -512,6 +512,24 @@ class TestLowMagnifiers(unittest.TestCase):
             self.assertIsNone(find_magnifier(frame), name)
 
 
+class TestStorySceneInChaos(unittest.TestCase):
+    def test_a_handed_over_chaos_stage_skips_a_story_scene(self):
+        import tempfile
+        from unittest.mock import patch
+        from src.en import autostart, status
+        from src.en.story_enter import handle_story_scene_skip
+        skipped = []
+        utils_story = types.ModuleType("utils_story")
+        utils_story.handle_skip_story = lambda task: skipped.append(task) or True
+        with tempfile.TemporaryDirectory() as folder, patch.object(status, "PATH", Path(folder) / "s.json"),                 patch.dict(sys.modules, utils_story=utils_story):
+            task = FakeTask([])
+            task.name = "自动卡厄思模式"
+            self.assertFalse(handle_story_scene_skip(task))
+            autostart.write_return("ChaosMode", seen=True)
+            self.assertTrue(handle_story_scene_skip(task))
+        self.assertEqual(skipped, [task])
+
+
 class TestEffectPanel(unittest.TestCase):
     LIVE = [FakeBox("Effect", 0.145, 0.05), FakeBox("Healthy", 0.686, 0.05), FakeBox("Health 1870(94.5%)", 0.82, 0.049),
             FakeBox("Chronal Ascension", 0.23, 0.236, width=250)]

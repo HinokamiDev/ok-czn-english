@@ -1138,6 +1138,26 @@ def handle_walk_magnifier(task, utils_sortie=None):
     return magnifier_step(lambda _task: False, task)
 
 
+def handle_story_scene_skip(task, utils_sortie=None):
+    """Skip a story scene inside a chaos stage the Story mode handed over, as the Story mode skips its own.
+
+    Act 5's chaos stage played a dialogue scene (Arabella, the skip button top right) and the Chaos mode, which has no
+    skip handler, waited on it for a minute (snapshot 20261012-004308). Its confirm box is already answered in every
+    list.
+
+    Returns:
+        True when the skip button was pressed.
+    """
+    from src.en import autostart
+
+    if not (status_folder() / autostart.RETURN_NAME).exists() or getattr(task, "name", "") == "半自动剧情模式":
+        return False
+    utils_story = loaded("utils_story")
+    if utils_story is None:
+        return False
+    return bool(utils_story.handle_skip_story(task))
+
+
 def handle_effect_panel(task, utils_sortie=None):
     """Close the status-effect panel a stray tap opened mid-fight ("Effect" top left, "Health 1870(94.5%)" top right).
 
@@ -1170,7 +1190,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_story_chaos_run", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
