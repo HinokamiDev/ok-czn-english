@@ -333,10 +333,10 @@ CA_INFIX = re.compile(r"_ca(?=_)")
 # Dropped from both sides: left on the equipment it would be a near-constant, and left on a combatant it
 # would be a weight that can never match anything.
 UNWEIGHTED_TAG = "public"
-# The game's own table misspells a kind for two of its combatants, and no relic carries the misspelling, so
-# their strongest preference matched nothing at all. Corrected on the way in rather than left for every
+# The game's own table misspells a kind for some of its combatants, and no relic carries the misspelling, so
+# that preference matched nothing at all. Corrected on the way in rather than left for every
 # reader to trip over. `TestHandTags` fails if a future patch introduces another one.
-TAG_TYPOS = {"bulllet": "bullet"}
+TAG_TYPOS = {"bulllet": "bullet", "initate": "initiate"}
 
 # What the client calls each card category, and the short name used here. These are the same five kinds the
 # reader already sees printed under a card in hand, so a category answers "may this be played at all".
