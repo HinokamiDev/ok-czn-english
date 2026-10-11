@@ -14,6 +14,9 @@ Commands are a JSON list in `komut.json` beside the status file, taken one per f
     {"bekle": 2}                               wait, in seconds
     {"goruntu": true}                          save a snapshot of the screen and the text read off it
     {"surukle": [x1, y1, x2, y2]}              drag, held still before letting go so nothing flings
+    {"varsa": "Notice", "tikla": [x, y]}       click at a point only if this text shows within `dene` frames
+    {"lobiye_don": true, "dene": 150}          from the title screen or the lobby's opening pop-ups to the lobby
+    Any command with "istege_bagli": true is skipped, not failed, when its text never shows.
     {"tut": true}                              hold the screen: the mode keeps waiting until the file is replaced,
                                                so a menu opened for a look is not closed by the mode's own handlers
 
@@ -84,12 +87,67 @@ def find_text(task, wanted, region=None):
     return None
 
 
+# The lobby, recognised by its menu down the right ("Simulation", "Combatants" read at x 0.87).
+LOBBY_WORDS = ("simulation", "combatants")
+LOBBY_REGION = (0.75, 0.25, 1.0, 0.70)
+# What stands between a fresh login and the lobby, each with where to press it (snapshots 20261012-005808..005850).
+TITLE_TEXT = "touchtostart"
+SKIP_TEXT = "skip"
+SKIP_REGION = (0.85, 0.0, 1.0, 0.12)
+TAP_TO_CLOSE = "点击屏幕关闭窗口"
+NOTICE_TABS = ("notice", "update")
+NOTICE_REGION = (0.10, 0.05, 0.50, 0.18)
+NOTICE_CLOSE = (0.910, 0.119)
+LOBBY_TRIES = 150
+
+
+def in_lobby(task):
+    return all(find_text(task, word, LOBBY_REGION) is not None for word in LOBBY_WORDS)
+
+
+def toward_lobby(task):
+    """One step from the title screen or an opening pop-up toward the lobby.
+
+    Returns:
+        True when the lobby is on screen.
+    """
+    if in_lobby(task):
+        return True
+    for wanted, region in ((TITLE_TEXT, None), (SKIP_TEXT, SKIP_REGION), (TAP_TO_CLOSE, None)):
+        box = find_text(task, wanted, region)
+        if box is not None:
+            task.click_box(box)
+            task.sleep(2)
+            return False
+    if any(find_text(task, tab, NOTICE_REGION) is not None for tab in NOTICE_TABS):
+        task.click_relative(*NOTICE_CLOSE)
+        task.sleep(2)
+    return False
+
+
+def tried(task, command, default=DEFAULT_TRIES):
+    """Count one more frame spent on this command; say whether it has had its tries."""
+    tries = getattr(task, TRIES, 0) + 1
+    setattr(task, TRIES, tries)
+    return tries >= int(command.get("dene", default))
+
+
 def run(task, command):
     """Carry out one command.
 
     Returns:
-        "ok" when done, "again" to try it on the next frame, or a failure message.
+        "ok" when done, "again" to try it on the next frame, "skipped", or a failure message.
     """
+    if "lobiye_don" in command:
+        if toward_lobby(task):
+            return "ok"
+        return "lobby not reached" if tried(task, command, LOBBY_TRIES) else "again"
+    if "varsa" in command:
+        if find_text(task, str(command["varsa"]), command.get("bolge")) is None:
+            return "skipped" if tried(task, command) else "again"
+        x, y = command["tikla"]
+        task.click_relative(float(x), float(y))
+        return "ok"
     if "tikla" in command:
         x, y = command["tikla"]
         task.click_relative(float(x), float(y))
@@ -97,11 +155,9 @@ def run(task, command):
     if "tikla_metin" in command:
         box = find_text(task, str(command["tikla_metin"]), command.get("bolge"))
         if box is None:
-            tries = getattr(task, TRIES, 0) + 1
-            setattr(task, TRIES, tries)
-            if tries < int(command.get("dene", DEFAULT_TRIES)):
+            if not tried(task, command):
                 return "again"
-            return f"text not found: {command['tikla_metin']}"
+            return "skipped" if command.get("istege_bagli") else f"text not found: {command['tikla_metin']}"
         task.click_box(box)
         return "ok"
     if "tus" in command:
@@ -153,7 +209,7 @@ def step(task):
     log.append({"komut": command, "sonuc": outcome})
     setattr(task, LOG, log)
     setattr(task, TRIES, 0)
-    if outcome != "ok":
+    if outcome not in ("ok", "skipped"):
         finish(task, f"failed at command {len(log)}: {outcome}")
         return True
     task.log_info(f"remote command {len(log)} done: {command}")

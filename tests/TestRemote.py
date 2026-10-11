@@ -100,5 +100,32 @@ class TestRemote(unittest.TestCase):
         self.assertTrue(remote.step(task))
         self.assertFalse(remote.commands_path().exists())
 
+    def test_the_way_to_the_lobby_passes_the_title_and_the_pop_ups(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("TOUCH TO START", 0.5, 0.85, width=300)])
+        remote.step(task)
+        task.all_texts = [FakeBox("SKIP", 0.94, 0.05)]
+        remote.step(task)
+        task.all_texts = [FakeBox("点击屏幕关闭窗口", 0.5, 0.94, width=300)]
+        remote.step(task)
+        task.all_texts = [FakeBox("Notice", 0.215, 0.116), FakeBox("Update", 0.403, 0.119)]
+        remote.step(task)
+        self.assertTrue(remote.commands_path().exists())
+        task.all_texts = [FakeBox("Simulation", 0.874, 0.353, width=200), FakeBox("Combatants", 0.868, 0.617, width=200)]
+        remote.step(task)
+        self.assertFalse(remote.commands_path().exists())
+        self.assertEqual(task.actions, [("box", "TOUCH TO START"), ("box", "SKIP"), ("box", "点击屏幕关闭窗口"),
+                                        ("click", 0.91, 0.119)])
+        self.assertEqual(self.result()["sonuc"], "done")
+
+    def test_optional_steps_are_skipped_when_their_text_never_shows(self):
+        self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
+                    {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])
+        task = FakeTask()
+        for _ in range(3):
+            remote.step(task)
+        self.assertEqual(task.actions, [("key", "f")])
+        self.assertEqual(self.result()["sonuc"], "done")
+
 if __name__ == "__main__":
     unittest.main()
