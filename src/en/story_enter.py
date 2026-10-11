@@ -711,6 +711,7 @@ ACT_CARDS_REGION = (0.0, 0.70, 1.0, 0.90)
 ACT_COLUMN = 0.06
 COMPLETE_WORD = "complete"
 ACT_PRESSED = "_en_act_pressed"
+ACT_LIST_DRAG = ((0.80, 0.45), (0.30, 0.45))
 
 
 def handle_act_list(task, utils_sortie=None):
@@ -735,11 +736,18 @@ def handle_act_list(task, utils_sortie=None):
 
     act = next((act for act in acts
                 if not any(COMPLETE_WORD in (box.name or "").casefold() for box in column(act))), None)
-    if act is None:
-        return False
     last = getattr(task, ACT_PRESSED, None)
     if last and time.monotonic() - last < HUB_COOLDOWN:
         return False
+    if act is None:
+        # Every act on screen Complete: the next one stands cut off at the right edge (Act 5 after Act 4, snapshot
+        # 20261012-001242), so the list is dragged along to it.
+        task.log_info(f"every act on the list is Complete up to '{acts[-1].name.strip()}', dragging the list along")
+        (x1, y1), (x2, y2) = ACT_LIST_DRAG
+        drag_map(task, x1, y1, x2, y2)
+        setattr(task, ACT_PRESSED, time.monotonic())
+        task.sleep(1)
+        return True
     target = max(column(act), key=lambda box: box.y, default=act)
     task.log_info(f"on the act list, opening '{act.name.strip()}', the first not marked Complete")
     task.click_box(target)

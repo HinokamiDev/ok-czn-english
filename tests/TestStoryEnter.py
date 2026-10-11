@@ -599,10 +599,15 @@ class TestActList(unittest.TestCase):
         self.assertFalse(handle_act_list(task))
         self.assertEqual(task.clicked, ["Chapter 1Episode"])
 
-    def test_every_act_complete_opens_nothing(self):
-        from src.en.story_enter import handle_act_list
+    def test_every_act_complete_drags_the_list_to_the_next(self):
+        # Snapshot 20261012-001242: Act 1-4 Complete, Act 5 cut off on the right.
+        from src.en.story_enter import ACT_LIST_DRAG, handle_act_list
         boxes = [box for box in self.LIVE if box.name != "Chapter 1Episode"] + [FakeBox("Complete", 0.83, 0.841)]
-        self.assertFalse(handle_act_list(MapTask(boxes)))
+        task = MapTask(boxes)
+        swipes = []
+        task.swipe_relative = lambda x1, y1, x2, y2, duration=0, settle_time=0: swipes.append(((x1, y1), (x2, y2)))
+        self.assertTrue(handle_act_list(task))
+        self.assertEqual((swipes, task.clicked), ([ACT_LIST_DRAG], []))
 
 
 class TestObserveCutOff(unittest.TestCase):
