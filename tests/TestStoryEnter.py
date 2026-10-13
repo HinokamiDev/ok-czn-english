@@ -409,6 +409,20 @@ class TestChaosReconnect(unittest.TestCase):
         self.assertEqual(task.clicked, ["继续"])
 
 
+
+class TestEntryDifficulty(unittest.TestCase):
+    def test_the_current_difficulty_is_entered(self):
+        from src.en.story_enter import handle_fork_steps
+        # The live pop-up on entering The Blue Pot, 14 Oct.
+        task = FakeTask([FakeBox("Chaos Manifestation Entry Guide", 0.5, 0.39, width=500),
+                         FakeBox("A higher difficulty is unlocked. Would you like to enter at the current difficulty?",
+                                 0.5, 0.505, width=1000),
+                         FakeBox("Do not show again for today.", 0.52, 0.627), FakeBox("取消", 0.347, 0.748),
+                         FakeBox("进入", 0.664, 0.748)])
+        task.frame = None
+        self.assertTrue(handle_fork_steps(task))
+        self.assertEqual(task.clicked, ["进入"])
+
 class TestBackOnStoryMap(unittest.TestCase):
     LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04), FakeBox("Toward the Abyss", 0.57, 0.493),
             FakeBox("#07", 0.659, 0.491), FakeBox("Burning Life", 0.366, 0.631)]

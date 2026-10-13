@@ -1043,6 +1043,36 @@ def handle_chaos_reconnect(task, utils_sortie=None):
     return True
 
 
+
+DIFFICULTY_QUESTION = "higher difficulty is unlocked"
+DIFFICULTY_REGION = (0.10, 0.44, 0.90, 0.57)
+ENTER_CAPTIONS = ("进入", "enter")
+ENTER_REGION = (0.50, 0.70, 0.85, 0.80)
+
+
+def handle_entry_difficulty(task, utils_sortie=None):
+    """Enter at the current difficulty when the game says a higher one is unlocked.
+
+    Read live (14 Oct, The Blue Pot): "Chaos Manifestation Entry Guide" - "A higher difficulty is unlocked. Would you
+    like to enter at the current difficulty?" at (0.5, 0.505), with Cancel at (0.35, 0.748) and Enter at (0.66, 0.748).
+    The dialogue handler kept tapping the title instead. Raising the difficulty is left to Burak.
+
+    Returns:
+        True when Enter was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, DIFFICULTY_QUESTION, DIFFICULTY_REGION) is None:
+        return False
+    button = next((found for caption in ENTER_CAPTIONS
+                   for found in [text_in_region(task, caption, ENTER_REGION)] if found is not None), None)
+    if button is None:
+        return False
+    task.log_info("a higher Chaos difficulty is unlocked, entering at the current one")
+    task.click_box(button)
+    task.sleep(3)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1201,7 +1231,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
