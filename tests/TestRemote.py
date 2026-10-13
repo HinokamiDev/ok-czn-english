@@ -118,6 +118,30 @@ class TestRemote(unittest.TestCase):
                                         ("click", 0.91, 0.119)])
         self.assertEqual(self.result()["sonuc"], "done")
 
+    def test_a_chaos_result_screen_is_confirmed_on_the_way(self):
+        # Live, 14 Oct: Story was started on the failed Chaos run's result screen and only tapped empty space.
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("Battle failed", 0.3, 0.717), FakeBox("Reward", 0.607, 0.626),
+                         FakeBox("确认", 0.918, 0.918)])
+        remote.step(task)
+        self.assertEqual(task.actions, [("box", "确认")])
+        task.all_texts = [FakeBox("Save Data collection complete", 0.5, 0.11), FakeBox("下一步", 0.935, 0.918)]
+        remote.step(task)
+        self.assertEqual(task.actions[-1], ("box", "下一步"))
+
+    def test_a_menu_screen_is_left_by_its_back_arrow_but_the_lobby_corner_is_not(self):
+        # Live, 14 Oct: Team Formation after the Chaos run, read as "主战员配置" beside the arrow.
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("主战员配置", 0.154, 0.043), FakeBox("The Blue Pot", 0.742, 0.154)])
+        for _ in range(3):
+            remote.step(task)
+        self.assertIn(("click", 0.042, 0.044), task.actions)
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("LV", 0.054, 0.05), FakeBox("Amachan", 0.13, 0.055)])
+        for _ in range(3):
+            remote.step(task)
+        self.assertNotIn(("click", 0.042, 0.044), task.actions)
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])

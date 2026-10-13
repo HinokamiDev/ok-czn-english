@@ -96,6 +96,18 @@ TITLE_TEXT = "touchtostart"
 SKIP_TEXT = "skip"
 SKIP_REGION = (0.85, 0.0, 1.0, 0.12)
 TAP_TO_CLOSE = "点击屏幕关闭窗口"
+# A run's result screen ("Battle failed", reward grid) closes with Confirm at the bottom right (20261014-010104).
+RESULT_CONFIRM = "确认"
+RESULT_CONFIRM_REGION = (0.75, 0.85, 1.0, 0.98)
+# Then "Save Data collection complete" and "Mental affliction triggered", each with Next there (20261014-0103..0104).
+# The Chaos mode stops as soon as its last run is counted, so these were still up when Story took over.
+RESULT_NEXT = "下一步"
+# A menu screen (Team Formation "主战员配置", Chaos Manifestation...) has its title top left and goes back with the arrow
+# at BACK_POINT. The lobby's own corner reads "LV" and the captain's name there, and the arrow would open the ID card.
+BACK_TITLE_REGION = (0.07, 0.0, 0.40, 0.09)
+BACK_POINT = (0.042, 0.044)
+LOBBY_CORNER = "lv"
+LOBBY_CORNER_REGION = (0.0, 0.0, 0.10, 0.14)
 NOTICE_TABS = ("notice", "update")
 NOTICE_REGION = (0.10, 0.05, 0.50, 0.18)
 NOTICE_CLOSE = (0.910, 0.119)
@@ -116,7 +128,8 @@ def toward_lobby(task):
     """
     if in_lobby(task):
         return True
-    for wanted, region in ((TITLE_TEXT, None), (SKIP_TEXT, SKIP_REGION), (TAP_TO_CLOSE, None)):
+    for wanted, region in ((TITLE_TEXT, None), (SKIP_TEXT, SKIP_REGION), (TAP_TO_CLOSE, None),
+                           (RESULT_CONFIRM, RESULT_CONFIRM_REGION), (RESULT_NEXT, RESULT_CONFIRM_REGION)):
         box = find_text(task, wanted, region)
         if box is not None:
             task.click_box(box)
@@ -124,6 +137,15 @@ def toward_lobby(task):
             return False
     if any(find_text(task, tab, NOTICE_REGION) is not None for tab in NOTICE_TABS):
         task.click_relative(*NOTICE_CLOSE)
+        task.sleep(2)
+        return False
+    from src.en.screen import in_region
+
+    tries = getattr(task, TRIES, 0)
+    titled = any(in_region(box, BACK_TITLE_REGION, task.width, task.height) and len((box.name or "").strip()) >= 2
+                 for box in task.all_texts or [])
+    if titled and find_text(task, LOBBY_CORNER, LOBBY_CORNER_REGION) is None and tries % REVEAL_EVERY == 1:
+        task.click_relative(*BACK_POINT)
         task.sleep(2)
         return False
     # The lobby hides its menus after a while untouched; a tap on an empty spot brings them back (Burak, 12 Oct).

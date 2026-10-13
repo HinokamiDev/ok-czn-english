@@ -15,6 +15,25 @@ from src.en.story_enter import (  # noqa: E402
 )
 from tests.fakes import FakeBox  # noqa: E402
 
+
+_status_patch = None
+
+
+def setUpModule():
+    """Keep the steps off the live status folder: a command file waiting there made the remote step claim every frame."""
+    import tempfile
+    from unittest.mock import patch
+    from src.en import status
+    global _status_patch, _status_folder
+    _status_folder = tempfile.TemporaryDirectory()
+    _status_patch = patch.object(status, "PATH", Path(_status_folder.name) / "son-calisma.json")
+    _status_patch.start()
+
+
+def tearDownModule():
+    _status_patch.stop()
+    _status_folder.cleanup()
+
 WIDTH, HEIGHT = 1920, 1080
 
 
