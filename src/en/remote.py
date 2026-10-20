@@ -111,6 +111,8 @@ RESULT_NEXT = "下一步"
 # left) and closes with the X at its top right (20261020-153147, 164559).
 SAVE_POPUP_TEXTS = ("canapplymutation", "savedata")
 SAVE_POPUP_CLOSE = (0.881, 0.15)
+# The Save Data page itself reads the same two texts, and there the X spot is its Edit Data button (20 Oct, 17:00).
+SAVE_PAGE_TEXTS = ("editdata", "cancelediting", "dismantle", "obtain")
 # A menu screen (Team Formation "主战员配置", Chaos Manifestation...) has its title top left and goes back with the arrow
 # at BACK_POINT. The lobby's own corner reads "LV" and the captain's name there, and the arrow would open the ID card.
 BACK_TITLE_REGION = (0.07, 0.0, 0.40, 0.09)
@@ -163,7 +165,8 @@ def toward_lobby(task):
             task.click_box(box)
             task.sleep(2)
             return False
-    if all(find_text(task, word) is not None for word in SAVE_POPUP_TEXTS):
+    if (all(find_text(task, word) is not None for word in SAVE_POPUP_TEXTS)
+            and all(find_text(task, word) is None for word in SAVE_PAGE_TEXTS)):
         press(task, *SAVE_POPUP_CLOSE)
         task.sleep(2)
         return False

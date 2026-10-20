@@ -201,6 +201,12 @@ class TestRemote(unittest.TestCase):
                          FakeBox("Can Apply Mutation", 0.242, 0.818)])
         remote.step(task)
         self.assertEqual(task.actions, [("click", 0.881, 0.15)])
+        # The Save Data page reads the same, but has Edit Data where the window's X would be.
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("Save Data", 0.36, 0.15), FakeBox("Can Apply Mutation", 0.37, 0.8),
+                         FakeBox("Edit Data", 0.92, 0.158), FakeBox("Dismantle in Bulk", 0.5, 0.92)])
+        remote.step(task)
+        self.assertNotIn(("click", 0.881, 0.15), task.actions)
 
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
