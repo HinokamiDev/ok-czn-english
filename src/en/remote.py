@@ -16,6 +16,8 @@ Commands are a JSON list in `komut.json` beside the status file, taken one per f
     {"surukle": [x1, y1, x2, y2]}              drag, held still before letting go so nothing flings
     {"varsa": "Notice", "tikla": [x, y]}       click at a point only if this text shows within `dene` frames
     {"yoksa": "Simulation", "tikla": [x, y]}   click at a point only if this text is not on screen (one frame)
+    {"kalp": 0}                                click the agent pin under the N-th pink heart from the left (Ark City
+                                               excursion map, where the agents move about between visits)
     {"lobiye_don": true, "dene": 150}          from the title screen or the lobby's opening pop-ups to the lobby
     Any command with "istege_bagli": true is skipped, not failed, when its text never shows.
     {"tut": true}                              hold the screen: the mode keeps waiting until the file is replaced,
@@ -175,6 +177,31 @@ def toward_lobby(task):
     return False
 
 
+
+# Ark City's excursion map marks each agent with a pink heart above the portrait pin (20261020-120834: hearts about
+# 22x20 of 1280x720, BGR about (156, 111, 255)); the portrait is clicked, down and right of the heart.
+HEART_HSV = ((160, 90, 180), (179, 220, 255))
+HEART_AREA = (2.5e-4, 4.8e-4)
+HEART_TO_PIN = (0.017, 0.045)
+
+
+def heart_pins(frame):
+    """The agent pins' click points, left to right, as screen fractions."""
+    import cv2
+
+    height, width = frame.shape[:2]
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, *HEART_HSV)
+    count, _, stats, centres = cv2.connectedComponentsWithStats(mask)
+    pins = []
+    for index in range(1, count):
+        area = stats[index][cv2.CC_STAT_AREA] / (width * height)
+        box_w, box_h = stats[index][cv2.CC_STAT_WIDTH], stats[index][cv2.CC_STAT_HEIGHT]
+        if HEART_AREA[0] <= area <= HEART_AREA[1] and 0.8 <= box_w / max(box_h, 1) <= 1.4:
+            x, y = centres[index]
+            pins.append((x / width + HEART_TO_PIN[0], y / height + HEART_TO_PIN[1]))
+    return sorted(pins)
+
 def tried(task, command, default=DEFAULT_TRIES):
     """Count one more frame spent on this command; say whether it has had its tries."""
     tries = getattr(task, TRIES, 0) + 1
@@ -203,6 +230,14 @@ def run(task, command):
             return "skipped" if tried(task, command) else "again"
         x, y = command["tikla"]
         press(task, float(x), float(y))
+        return "ok"
+    if "kalp" in command:
+        frame = getattr(task, "frame", None)
+        pins = heart_pins(frame) if frame is not None else []
+        wanted = int(command["kalp"])
+        if wanted >= len(pins):
+            return "no agent pin" if tried(task, command) else "again"
+        press(task, *pins[wanted])
         return "ok"
     if "tikla" in command:
         x, y = command["tikla"]

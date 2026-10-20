@@ -151,6 +151,22 @@ class TestRemote(unittest.TestCase):
             remote.step(task)
         self.assertNotIn(("click", 0.042, 0.044), task.actions)
 
+    def test_agent_pins_are_found_under_their_hearts(self):
+        import numpy as np
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        for left, top in ((879, 365), (1180, 590)):
+            frame[top:top + 30, left:left + 33] = (156, 111, 255)
+        pins = remote.heart_pins(frame)
+        self.assertEqual(len(pins), 2)
+        self.assertAlmostEqual(pins[0][0], (879 + 16) / 1920 + 0.017, places=2)
+        self.assertAlmostEqual(pins[0][1], (365 + 14.5) / 1080 + 0.045, places=2)
+        self.write([{"kalp": 1}])
+        task = FakeTask()
+        task.frame = frame
+        remote.step(task)
+        self.assertEqual(task.actions[0][0], "click")
+        self.assertAlmostEqual(task.actions[0][1], pins[1][0], places=2)
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])
