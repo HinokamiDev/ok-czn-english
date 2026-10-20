@@ -107,6 +107,10 @@ RESULT_CONFIRM_REGION = (0.75, 0.85, 1.0, 0.98)
 # Then "Save Data collection complete" and "Mental affliction triggered", each with Next there (20261014-0103..0104).
 # The Chaos mode stops as soon as its last run is counted, so these were still up when Story took over.
 RESULT_NEXT = "下一步"
+# After a run, the new save's detail window opens over the result ("Save Data" top left, "Can Apply Mutation" lower
+# left) and closes with the X at its top right (20261020-153147, 164559).
+SAVE_POPUP_TEXTS = ("canapplymutation", "savedata")
+SAVE_POPUP_CLOSE = (0.881, 0.15)
 # A menu screen (Team Formation "主战员配置", Chaos Manifestation...) has its title top left and goes back with the arrow
 # at BACK_POINT. The lobby's own corner reads "LV" and the captain's name there, and the arrow would open the ID card.
 BACK_TITLE_REGION = (0.07, 0.0, 0.40, 0.09)
@@ -159,6 +163,10 @@ def toward_lobby(task):
             task.click_box(box)
             task.sleep(2)
             return False
+    if all(find_text(task, word) is not None for word in SAVE_POPUP_TEXTS):
+        press(task, *SAVE_POPUP_CLOSE)
+        task.sleep(2)
+        return False
     if any(find_text(task, tab, NOTICE_REGION) is not None for tab in NOTICE_TABS):
         press(task, *NOTICE_CLOSE)
         task.sleep(2)

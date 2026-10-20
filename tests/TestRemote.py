@@ -195,6 +195,13 @@ class TestRemote(unittest.TestCase):
         self.assertNotIn(("click", 0.45, 0.8), task.actions)
         self.assertIn(("click", 0.042, 0.044), task.actions)
 
+    def test_the_new_save_window_after_a_run_is_closed(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("Save Data", 0.234, 0.168), FakeBox("30270 TB", 0.33, 0.4),
+                         FakeBox("Can Apply Mutation", 0.242, 0.818)])
+        remote.step(task)
+        self.assertEqual(task.actions, [("click", 0.881, 0.15)])
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])
