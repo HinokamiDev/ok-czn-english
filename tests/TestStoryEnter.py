@@ -442,6 +442,18 @@ class TestEntryDifficulty(unittest.TestCase):
         self.assertTrue(handle_fork_steps(task))
         self.assertEqual(task.clicked, ["进入"])
 
+
+class TestBattlePrep(unittest.TestCase):
+    def test_the_prep_warning_is_entered_past(self):
+        from src.en.story_enter import handle_fork_steps
+        task = FakeTask([FakeBox("Battle Prep Confirmation", 0.5, 0.17, width=400),
+                         FakeBox("Recommended Lv. 05", 0.5, 0.245), FakeBox("Orlea", 0.354, 0.406),
+                         FakeBox("Assign Partner", 0.77, 0.406), FakeBox("取消", 0.347, 0.83),
+                         FakeBox("进入", 0.666, 0.83)])
+        task.frame = None
+        self.assertTrue(handle_fork_steps(task))
+        self.assertEqual(task.clicked, ["进入"])
+
 class TestBackOnStoryMap(unittest.TestCase):
     LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04), FakeBox("Toward the Abyss", 0.57, 0.493),
             FakeBox("#07", 0.659, 0.491), FakeBox("Burning Life", 0.366, 0.631)]

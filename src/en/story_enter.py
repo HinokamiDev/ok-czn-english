@@ -1073,6 +1073,34 @@ def handle_entry_difficulty(task, utils_sortie=None):
     task.sleep(3)
     return True
 
+
+PREP_TITLE = "battle prep confirmation"
+PREP_TITLE_REGION = (0.25, 0.12, 0.75, 0.22)
+PREP_ENTER_REGION = (0.50, 0.77, 0.85, 0.90)
+
+
+def handle_battle_prep(task, utils_sortie=None):
+    """Enter past the Battle Prep Confirmation, which warns of a member without a Partner or under the level.
+
+    Read live (20 Oct, City of Mist with Orlea, no partner yet): "Battle Prep Confirmation" at (0.5, 0.17), Cancel at
+    (0.35, 0.83) and Enter (进入) at (0.66, 0.83). The Chaos mode kept tapping the title instead.
+
+    Returns:
+        True when Enter was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, PREP_TITLE, PREP_TITLE_REGION) is None:
+        return False
+    button = next((found for caption in ENTER_CAPTIONS
+                   for found in [text_in_region(task, caption, PREP_ENTER_REGION)] if found is not None), None)
+    if button is None:
+        return False
+    task.log_info("battle prep warning (no partner or under level), entering anyway")
+    task.click_box(button)
+    task.sleep(3)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1231,7 +1259,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
@@ -1248,7 +1276,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_map_drag_back", "handle_chapter_forward")
 
 
