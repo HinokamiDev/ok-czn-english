@@ -1248,7 +1248,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_map_drag_back", "handle_chapter_forward")
 
 
