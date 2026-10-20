@@ -125,7 +125,12 @@ def press(task, x, y):
     A bare click was swallowed live on Arkhianon Supply's Claim All and the lobby's festival icon (14 and 20 Oct): those
     buttons take a click only once the pointer has entered them. Fixed timing, nothing random.
     """
-    task.move_relative(x, y)
+    try:
+        task.move_relative(x, y)
+    except Exception as error:
+        # Refused while another window is in front; the click below is then lost too, and the snapshot shows it.
+        if "SetCursorPos" not in str(error):
+            raise
     task.sleep(HOVER_SECONDS)
     task.click_relative(x, y)
 

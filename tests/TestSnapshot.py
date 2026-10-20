@@ -179,5 +179,19 @@ class TestTextStill(unittest.TestCase):
         self.assertEqual(len(list(snapshot.folder().glob("*.png"))), 1)
 
 
+
+class TestGuardedClick(unittest.TestCase):
+    def test_a_refused_pointer_loses_the_click_not_the_run(self):
+        def refused(operation, *args, **kwargs):
+            raise OSError(0, "SetCursorPos", "No error message is available")
+        self.assertFalse(snapshot.guarded_click(refused, None, (1, 2), {}))
+
+    def test_other_errors_still_raise(self):
+        def broken(operation, *args, **kwargs):
+            raise ValueError("other")
+        with self.assertRaises(ValueError):
+            snapshot.guarded_click(broken, None, (), {})
+
+
 if __name__ == "__main__":
     unittest.main()

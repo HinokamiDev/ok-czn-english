@@ -158,6 +158,24 @@ def describe_click(args, kwargs):
         return "@?"
 
 
+def guarded_click(original, operation, args, kwargs):
+    """Send a click, and lose it rather than the run when Windows refuses to move the pointer.
+
+    Windows refuses `SetCursorPos` while another window is in front (Burak brings Claude's window forward to watch):
+    on 20 Oct the Story mode stopped mid-excursion on that error, raised from its own Confirm click. The frame after
+    sees the same screen and clicks again, so a lost click only costs a frame.
+
+    Returns:
+        What the click returned, or False when it was lost.
+    """
+    try:
+        return original(operation, *args, **kwargs)
+    except Exception as error:
+        if "SetCursorPos" not in str(error):
+            raise
+        logger.warning("click lost: the game window is not in front (SetCursorPos refused)")
+        return False
+
 def hook_actions():
     """Note every click and key a task sends. Installed once; the notes go through this module by name, so a reload
     of it changes what is noted without hooking twice."""
@@ -175,7 +193,7 @@ def hook_actions():
             module.note_action(self, "click", module.describe_click(args, kwargs))
         except Exception:
             pass
-        return original_click(self, *args, **kwargs)
+        return sys.modules[__name__].guarded_click(original_click, self, args, kwargs)
 
     def send_key(self, key, *args, **kwargs):
         try:
