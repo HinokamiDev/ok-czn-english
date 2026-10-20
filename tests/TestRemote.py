@@ -141,6 +141,12 @@ class TestRemote(unittest.TestCase):
         for _ in range(3):
             remote.step(task)
         self.assertNotIn(("click", 0.042, 0.044), task.actions)
+        # As read live, 20 Oct: "LV" comes through the catalog as "等级".
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("等级", 0.054, 0.05), FakeBox("Amachan", 0.13, 0.054)])
+        for _ in range(3):
+            remote.step(task)
+        self.assertNotIn(("click", 0.042, 0.044), task.actions)
 
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},

@@ -106,7 +106,8 @@ RESULT_NEXT = "下一步"
 # at BACK_POINT. The lobby's own corner reads "LV" and the captain's name there, and the arrow would open the ID card.
 BACK_TITLE_REGION = (0.07, 0.0, 0.40, 0.09)
 BACK_POINT = (0.042, 0.044)
-LOBBY_CORNER = "lv"
+# OCR reads "LV" through the catalog as "等级" (20261020-115836); either is taken.
+LOBBY_CORNER = ("lv", "等级")
 LOBBY_CORNER_REGION = (0.0, 0.0, 0.10, 0.14)
 NOTICE_TABS = ("notice", "update")
 NOTICE_REGION = (0.10, 0.05, 0.50, 0.18)
@@ -144,7 +145,7 @@ def toward_lobby(task):
     tries = getattr(task, TRIES, 0)
     titled = any(in_region(box, BACK_TITLE_REGION, task.width, task.height) and len((box.name or "").strip()) >= 2
                  for box in task.all_texts or [])
-    if titled and find_text(task, LOBBY_CORNER, LOBBY_CORNER_REGION) is None and tries % REVEAL_EVERY == 1:
+    if titled and all(find_text(task, word, LOBBY_CORNER_REGION) is None for word in LOBBY_CORNER) and tries % REVEAL_EVERY == 1:
         task.click_relative(*BACK_POINT)
         task.sleep(2)
         return False
