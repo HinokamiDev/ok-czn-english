@@ -167,6 +167,26 @@ class TestRemote(unittest.TestCase):
         self.assertEqual(task.actions[0][0], "click")
         self.assertAlmostEqual(task.actions[0][1], pins[1][0], places=2)
 
+    def test_the_policy_nearest_the_targets_is_stamped(self):
+        # As read live, 20 Oct (20261020-130045).
+        boxes = [FakeBox("Activating Uniform Shield", 0.61, 0.22), FakeBox("2 Day(s) Reduced", 0.61, 0.315),
+                 FakeBox("Increase Public Order", 0.59, 0.368), FakeBox("Index by 14", 0.55, 0.4),
+                 FakeBox("Reduce Happiness by 3", 0.59, 0.453), FakeBox("Obtain Policy Point", 0.62, 0.507),
+                 FakeBox("Partial Reinforced Shield", 0.86, 0.19), FakeBox("2 Day(s) Reduced", 0.85, 0.28),
+                 FakeBox("Increase Public Order", 0.84, 0.335), FakeBox("Index by 8", 0.81, 0.363),
+                 FakeBox("Increase Happiness by 2", 0.84, 0.42), FakeBox("Obtain Policy Point", 0.87, 0.475),
+                 FakeBox("Happiness", 0.081, 0.634), FakeBox("60/100", 0.205, 0.634),
+                 FakeBox("Administrative Index", 0.096, 0.723), FakeBox("97/100", 0.206, 0.724),
+                 FakeBox("Economic Activity", 0.095, 0.814), FakeBox("60/100", 0.206, 0.816),
+                 FakeBox("Public Order Index", 0.095, 0.904), FakeBox("37/100", 0.207, 0.908)]
+        task = FakeTask(boxes)
+        self.assertEqual(remote.policy_levels(task), {"Happiness": 60, "Administrative": 97, "Economic Activity": 60,
+                                                      "Public Order": 37})
+        self.assertEqual(remote.policy_effects(task, remote.POLICY_DOCUMENTS[0]), {"Public Order": 14, "Happiness": -3})
+        self.write([{"politika": {"Public Order": 65, "Happiness": 60, "Economic Activity": 60}}])
+        remote.step(task)
+        self.assertEqual(task.actions[0][:5], ("drag", 0.735, 0.80, 0.61, 0.45))
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])

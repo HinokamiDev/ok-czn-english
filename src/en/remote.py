@@ -16,6 +16,9 @@ Commands are a JSON list in `komut.json` beside the status file, taken one per f
     {"surukle": [x1, y1, x2, y2]}              drag, held still before letting go so nothing flings
     {"varsa": "Notice", "tikla": [x, y]}       click at a point only if this text shows within `dene` frames
     {"yoksa": "Simulation", "tikla": [x, y]}   click at a point only if this text is not on screen (one frame)
+    {"politika": {"Public Order": 65}}         Policy Office: stamp the document that brings the city's indexes
+                                               nearest their targets (read off the left panel); "no policy" when
+                                               no pair of documents is up
     {"kalp": 0}                                click the agent pin under the N-th pink heart from the left (Ark City
                                                excursion map, where the agents move about between visits)
     {"lobiye_don": true, "dene": 150}          from the title screen or the lobby's opening pop-ups to the lobby
@@ -202,6 +205,64 @@ def heart_pins(frame):
             pins.append((x / width + HEART_TO_PIN[0], y / height + HEART_TO_PIN[1]))
     return sorted(pins)
 
+
+# Ark City Policy Office (20261020-125940, 130045): two documents side by side, each listing "Increase/Reduce <index> by
+# N", and a stamp to drag onto the one approved. The left panel reads each index as "60/100".
+POLICY_INDEXES = ("Public Order", "Happiness", "Administrative", "Economic Activity")
+POLICY_DOCUMENTS = ((0.50, 0.15, 0.735, 0.70), (0.75, 0.13, 0.985, 0.70))
+POLICY_DROP = ((0.61, 0.45), (0.86, 0.45))
+POLICY_STAMP = (0.735, 0.80)
+POLICY_PANEL = (0.0, 0.58, 0.26, 0.95)
+
+
+def policy_effects(task, region):
+    """The index changes one document lists, as {index: signed amount}."""
+    import re
+    from src.en.screen import in_region
+
+    boxes = sorted((box for box in task.all_texts or [] if in_region(box, region, task.width, task.height)),
+                   key=lambda box: (box.y, box.x))
+    text = " ".join((box.name or "") for box in boxes)
+    effects = {}
+    for verb, name, amount in re.findall(r"\b(Increase|Reduce)\b\s*([A-Za-z ]+?)\s*(?:Index\s*)?by\s*(\d+)", text):
+        index = next((known for known in POLICY_INDEXES if known.replace(" ", "").lower() in name.replace(" ", "").lower()),
+                     None)
+        if index:
+            effects[index] = effects.get(index, 0) + (int(amount) if verb == "Increase" else -int(amount))
+    return effects
+
+
+def policy_levels(task):
+    """The indexes' current values off the left panel, top to bottom, as {index: value}."""
+    import re
+    from src.en.screen import in_region
+
+    panel = [box for box in task.all_texts or [] if in_region(box, POLICY_PANEL, task.width, task.height)]
+    levels = {}
+    for box in panel:
+        index = next((known for known in POLICY_INDEXES
+                      if known.replace(" ", "").lower() in (box.name or "").replace(" ", "").lower()), None)
+        if index is None:
+            continue
+        value = min((other for other in panel if re.fullmatch(r"\d+/100", (other.name or "").strip())),
+                    key=lambda other: abs(other.y - box.y), default=None)
+        if value is not None and abs(value.y - box.y) < 0.04 * task.height:
+            levels[index] = int(value.name.split("/")[0])
+    return levels
+
+
+def policy_score(effects, levels, targets):
+    """Progress toward the targets (a drop below one counts against), with a small credit for any other rise."""
+    score = 0.0
+    for index, change in effects.items():
+        now = levels.get(index, 0)
+        after = max(0, min(100, now + change))
+        target = targets.get(index)
+        if target is not None:
+            score += 10 * (min(after, target) - min(now, target))
+        score += 0.1 * (after - now)
+    return score
+
 def tried(task, command, default=DEFAULT_TRIES):
     """Count one more frame spent on this command; say whether it has had its tries."""
     tries = getattr(task, TRIES, 0) + 1
@@ -265,6 +326,18 @@ def run(task, command):
         return "ok" if image else "no frame to save"
     if "tut" in command:
         return "hold"
+    if "politika" in command:
+        targets = {key: int(value) for key, value in (command["politika"] or {}).items()}
+        effects = [policy_effects(task, region) for region in POLICY_DOCUMENTS]
+        if not all(effects):
+            return "no policy" if tried(task, command) else "again"
+        levels = policy_levels(task)
+        scores = [policy_score(effect, levels, targets) for effect in effects]
+        chosen = 0 if scores[0] >= scores[1] else 1
+        task.log_info(f"policy: levels {levels}, left {effects[0]} = {scores[0]:.1f}, right {effects[1]} = "
+                      f"{scores[1]:.1f}, stamping the {'left' if chosen == 0 else 'right'}")
+        task.swipe_relative(*POLICY_STAMP, *POLICY_DROP[chosen], duration=DRAG_SECONDS, settle_time=DRAG_HOLD)
+        return "ok"
     if "surukle" in command:
         x1, y1, x2, y2 = command["surukle"]
         task.swipe_relative(float(x1), float(y1), float(x2), float(y2), duration=DRAG_SECONDS, settle_time=DRAG_HOLD)
