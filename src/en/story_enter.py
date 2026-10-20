@@ -1101,6 +1101,31 @@ def handle_battle_prep(task, utils_sortie=None):
     task.sleep(3)
     return True
 
+
+NO_SIGNAL_TEXT = "signal does not reach this region"
+NO_SIGNAL_REGION = (0.0, 0.75, 0.42, 0.92)
+NO_SIGNAL_NODE = (0.8, 0.52)
+
+
+def handle_no_signal_region(task, utils_sortie=None):
+    """Walk on in a Codex Dimensional Tunnel, where the map shows one node and no route.
+
+    Read live twice (20 Oct, Zero System Codex, The Blue Pot): "The SS Nightmare's signal does not reach this region."
+    in a panel lower left, and a single battle node at about (0.8, 0.52). Nothing upstream recognises the screen, so
+    the run sat there with no click for 180s.
+
+    Returns:
+        True when the node was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, NO_SIGNAL_TEXT, NO_SIGNAL_REGION) is None:
+        return False
+    task.log_info("no-signal region in a Codex tunnel, walking to its node")
+    task.click_relative(*NO_SIGNAL_NODE)
+    task.sleep(3)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1259,7 +1284,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 

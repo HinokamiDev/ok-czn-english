@@ -454,6 +454,18 @@ class TestBattlePrep(unittest.TestCase):
         self.assertTrue(handle_fork_steps(task))
         self.assertEqual(task.clicked, ["进入"])
 
+
+class TestNoSignalRegion(unittest.TestCase):
+    def test_the_lone_node_is_walked_to(self):
+        from src.en.story_enter import handle_fork_steps
+        task = FakeTask([FakeBox("The SS Nightmare's signal does not reach this region.", 0.198, 0.849, width=500),
+                         FakeBox("275", 0.74, 0.053)])
+        task.frame = None
+        pressed = []
+        task.click_relative = lambda x, y: pressed.append((x, y))
+        self.assertTrue(handle_fork_steps(task))
+        self.assertEqual(pressed, [(0.8, 0.52)])
+
 class TestBackOnStoryMap(unittest.TestCase):
     LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04), FakeBox("Toward the Abyss", 0.57, 0.493),
             FakeBox("#07", 0.659, 0.491), FakeBox("Burning Life", 0.366, 0.631)]
