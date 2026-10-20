@@ -187,6 +187,14 @@ class TestRemote(unittest.TestCase):
         remote.step(task)
         self.assertEqual(task.actions[0][:5], ("drag", 0.735, 0.80, 0.61, 0.45))
 
+    def test_a_menu_screen_never_gets_the_lobby_wake_up_tap(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("Simulation", 0.13, 0.047), FakeBox("Combat Training", 0.145, 0.69)])
+        for _ in range(6):
+            remote.step(task)
+        self.assertNotIn(("click", 0.45, 0.8), task.actions)
+        self.assertIn(("click", 0.042, 0.044), task.actions)
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])

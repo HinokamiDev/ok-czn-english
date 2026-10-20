@@ -168,9 +168,12 @@ def toward_lobby(task):
     tries = getattr(task, TRIES, 0)
     titled = any(in_region(box, BACK_TITLE_REGION, task.width, task.height) and len((box.name or "").strip()) >= 2
                  for box in task.all_texts or [])
-    if titled and all(find_text(task, word, LOBBY_CORNER_REGION) is None for word in LOBBY_CORNER) and tries % REVEAL_EVERY == 1:
-        press(task, *BACK_POINT)
-        task.sleep(2)
+    if titled and all(find_text(task, word, LOBBY_CORNER_REGION) is None for word in LOBBY_CORNER):
+        # A menu: only its back arrow, never the lobby's wake-up tap, which on Simulation landed on the Basin of
+        # Hyperspace card and walked off further (20 Oct, 14:03).
+        if tries % REVEAL_EVERY == 1:
+            press(task, *BACK_POINT)
+            task.sleep(2)
         return False
     # The lobby hides its menus after a while untouched; a tap on an empty spot brings them back (Burak, 12 Oct).
     # Every third frame, so a screen still loading is not tapped on every frame.
