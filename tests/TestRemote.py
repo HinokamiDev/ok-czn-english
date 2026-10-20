@@ -25,6 +25,9 @@ class FakeTask:
     def click_box(self, box):
         self.actions.append(("box", box.name))
 
+    def move_relative(self, x, y):
+        pass
+
     def send_key(self, key):
         self.actions.append(("key", key))
 

@@ -116,6 +116,19 @@ LOBBY_TRIES = 150
 REVEAL_TAP = (0.45, 0.80)
 REVEAL_EVERY = 3
 
+HOVER_SECONDS = 0.5
+
+
+def press(task, x, y):
+    """Click at screen fractions with the pointer brought there first, as upstream's `_move_and_click` does.
+
+    A bare click was swallowed live on Arkhianon Supply's Claim All and the lobby's festival icon (14 and 20 Oct): those
+    buttons take a click only once the pointer has entered them. Fixed timing, nothing random.
+    """
+    task.move_relative(x, y)
+    task.sleep(HOVER_SECONDS)
+    task.click_relative(x, y)
+
 
 def in_lobby(task):
     return all(find_text(task, word, LOBBY_REGION) is not None for word in LOBBY_WORDS)
@@ -137,7 +150,7 @@ def toward_lobby(task):
             task.sleep(2)
             return False
     if any(find_text(task, tab, NOTICE_REGION) is not None for tab in NOTICE_TABS):
-        task.click_relative(*NOTICE_CLOSE)
+        press(task, *NOTICE_CLOSE)
         task.sleep(2)
         return False
     from src.en.screen import in_region
@@ -146,13 +159,13 @@ def toward_lobby(task):
     titled = any(in_region(box, BACK_TITLE_REGION, task.width, task.height) and len((box.name or "").strip()) >= 2
                  for box in task.all_texts or [])
     if titled and all(find_text(task, word, LOBBY_CORNER_REGION) is None for word in LOBBY_CORNER) and tries % REVEAL_EVERY == 1:
-        task.click_relative(*BACK_POINT)
+        press(task, *BACK_POINT)
         task.sleep(2)
         return False
     # The lobby hides its menus after a while untouched; a tap on an empty spot brings them back (Burak, 12 Oct).
     # Every third frame, so a screen still loading is not tapped on every frame.
     if getattr(task, TRIES, 0) % REVEAL_EVERY == REVEAL_EVERY - 1:
-        task.click_relative(*REVEAL_TAP)
+        press(task, *REVEAL_TAP)
         task.sleep(1)
     return False
 
@@ -178,17 +191,17 @@ def run(task, command):
         if find_text(task, str(command["yoksa"]), command.get("bolge")) is not None:
             return "skipped"
         x, y = command["tikla"]
-        task.click_relative(float(x), float(y))
+        press(task, float(x), float(y))
         return "ok"
     if "varsa" in command:
         if find_text(task, str(command["varsa"]), command.get("bolge")) is None:
             return "skipped" if tried(task, command) else "again"
         x, y = command["tikla"]
-        task.click_relative(float(x), float(y))
+        press(task, float(x), float(y))
         return "ok"
     if "tikla" in command:
         x, y = command["tikla"]
-        task.click_relative(float(x), float(y))
+        press(task, float(x), float(y))
         return "ok"
     if "tikla_metin" in command:
         box = find_text(task, str(command["tikla_metin"]), command.get("bolge"))
