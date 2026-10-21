@@ -1217,6 +1217,50 @@ def handle_etched_memory(task, utils_sortie=None):
     return True
 
 
+LOOT_OBTAIN = (0.86, 0.387)
+
+
+def vouchers_left(task):
+    """Whether the Settlement's voucher counter (top right, "2/4") shows any left."""
+    import re
+    from src.en.screen import in_region
+
+    for box in task.all_texts or []:
+        found = re.fullmatch(r"\s*(\d)\s*/\s*\d\s*\+?", box.name or "")
+        if found and in_region(box, (0.8, 0.0, 0.95, 0.1), task.width, task.height):
+            return int(found.group(1)) > 0
+    return False
+
+
+def handle_loot_voucher_dialogs(task, utils_sortie=None):
+    """Answer the two Settlement dialogs about Loot Certification Cards.
+
+    "Consume 1 Loot Certification Card to exchange for a reward" - press 获得 (obtain).
+    "Continue without using Loot Certification Card?" (from End of Memories while one is left) - cancel, so the loot is
+    taken first; with none left, confirm (20261021-105553, 105615).
+
+    Returns:
+        True when a dialog was answered.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, "exchange for a reward", (0.1, 0.5, 0.9, 0.7)) is not None:
+        button = text_in_region(task, "获得", (0.45, 0.65, 0.75, 0.78))
+        if button is not None:
+            task.log_info("loot voucher exchange, obtaining")
+            task.click_box(button)
+            task.sleep(3)
+            return True
+    if text_in_region(task, "continue without using", (0.1, 0.3, 0.9, 0.6)) is not None:
+        word = "取消" if vouchers_left(task) else "确认"
+        button = text_in_region(task, word, (0.25, 0.55, 0.75, 0.8))
+        if button is not None:
+            task.log_info(f"Settlement asks to continue without the voucher, answering {word}")
+            task.click_box(button)
+            task.sleep(2)
+            return True
+    return False
+
 def handle_end_of_memories(task, utils_sortie=None):
     """Finish a season story Chaos stage from its Settlement: "End of Memories" bottom right (20261021-094002).
 
@@ -1231,6 +1275,12 @@ def handle_end_of_memories(task, utils_sortie=None):
     if button is None or all(text_in_region(task, word, (0.5, 0.0, 0.8, 0.12)) is None
                              for word in ("settlement", "结算")):
         return False
+    if (vouchers_left(task) and text_in_region(task, "additional loot obtained", (0.5, 0.35, 1.0, 0.45)) is None
+            and text_in_region(task, "obtain", (0.78, 0.33, 1.0, 0.45)) is not None):
+        task.log_info("season story Settlement, taking the additional loot with a voucher first")
+        task.click_relative(*LOOT_OBTAIN)
+        task.sleep(3)
+        return True
     task.log_info("season story Settlement, pressing End of Memories")
     task.click_box(button)
     task.sleep(5)
@@ -1417,7 +1467,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_loot_voucher_dialogs", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
