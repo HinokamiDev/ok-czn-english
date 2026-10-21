@@ -1160,6 +1160,11 @@ def handle_season_play_node(task, utils_sortie=None):
     """
     if not any(titled(task, label) for label in STORY_LABELS):
         return False
+    from src.en.screen import text_in_region
+
+    # The stage panel is open: its Enter button is the next press, which the stage-entry step makes.
+    if any(text_in_region(task, word, (0.62, 0.85, 1.0, 0.99)) is not None for word in ("进入", "enter")):
+        return False
     point = orange_play_button(getattr(task, "frame", None))
     if point is None:
         return False
