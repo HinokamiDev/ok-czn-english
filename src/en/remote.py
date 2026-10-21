@@ -112,8 +112,8 @@ RESULT_NEXT = "下一步"
 SAVE_POPUP_TEXTS = ("canapplymutation", "savedata")
 SAVE_POPUP_CLOSE = (0.881, 0.15)
 # Login banners over the lobby ("Seasonal Rossweisse ... Go to Rescue", 20261021-081117) close with the X top right.
-BANNER_TEXTS = ("gotorescue", "gotoevent", "gotoshop", "rate-up")
-BANNER_REGION = (0.0, 0.70, 1.0, 1.0)
+BANNER_TEXTS = ("gotorescue", "gotoevent", "gotoshop", "rate-up", "visitthenightmarecarnival", "selectiontickets")
+BANNER_REGION = (0.0, 0.15, 1.0, 1.0)
 BANNER_CLOSE = (0.968, 0.052)
 # Season introductions ("A Promise Upon the Snow ... New Season", 20261021-081239) end with Confirm at the bottom centre.
 INTRO_TEXTS = ("newseason", "season-restricted", "seasonalpower")

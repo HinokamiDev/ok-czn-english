@@ -215,6 +215,13 @@ class TestRemote(unittest.TestCase):
         remote.step(task)
         self.assertEqual(task.actions, [("click", 0.968, 0.052)])
 
+    def test_the_anniversary_popup_is_closed(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("Instant giveaway of 5★ Combatant & Partner Selection Tickets to help you out!", 0.5, 0.275),
+                         FakeBox("Visit the Nightmare Carnival right now!", 0.5, 0.846), FakeBox("Move", 0.555, 0.912)])
+        remote.step(task)
+        self.assertEqual(task.actions, [("click", 0.968, 0.052)])
+
     def test_a_season_introduction_is_confirmed(self):
         self.write([{"lobiye_don": True}])
         task = FakeTask([FakeBox("New Season", 0.5, 0.278), FakeBox("Seasonal Power", 0.103, 0.756),
