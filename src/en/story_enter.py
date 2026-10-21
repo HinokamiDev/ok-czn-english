@@ -1126,6 +1126,70 @@ def handle_no_signal_region(task, utils_sortie=None):
     task.sleep(3)
     return True
 
+
+PLAY_HSV = ((10, 150, 180), (25, 255, 255))
+PLAY_AREA = (3.5e-4, 1.1e-3)
+
+
+def orange_play_button(frame):
+    """The season story map's play button on the current node, as screen fractions, or None.
+
+    Act 6 maps (20261021-084138, 085433, 085620) mark the node to play with a filled orange circle, 28x28 of 1280x720,
+    which the older-map steps did not know: they backed out of the map as if nothing were left on it.
+    """
+    import cv2
+
+    if frame is None:
+        return None
+    height, width = frame.shape[:2]
+    mask = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), *PLAY_HSV)
+    count, _, stats, centres = cv2.connectedComponentsWithStats(mask)
+    for index in range(1, count):
+        area = stats[index][cv2.CC_STAT_AREA] / (width * height)
+        box_w, box_h = stats[index][cv2.CC_STAT_WIDTH], stats[index][cv2.CC_STAT_HEIGHT]
+        if PLAY_AREA[0] <= area <= PLAY_AREA[1] and 0.8 <= box_w / max(box_h, 1) <= 1.25:
+            return centres[index][0] / width, centres[index][1] / height
+    return None
+
+
+def handle_season_play_node(task, utils_sortie=None):
+    """On a season story map, press the orange play button of the node to play next.
+
+    Returns:
+        True when it was pressed.
+    """
+    if not any(titled(task, label) for label in STORY_LABELS):
+        return False
+    point = orange_play_button(getattr(task, "frame", None))
+    if point is None:
+        return False
+    task.log_info(f"season story map, playing the node at {point[0]:.3f},{point[1]:.3f}")
+    task.click_relative(*point)
+    task.sleep(3)
+    return True
+
+
+GALACTIC_TITLE = "galactic disaster"
+GALACTIC_STORY_NODE = (0.53, 0.37)
+
+
+def handle_galactic_back_to_story(task, utils_sortie=None):
+    """Back on the Galactic Disaster page after an episode, go into its Story node again (Story mode only).
+
+    Returns:
+        True when the Story node was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, GALACTIC_TITLE, (0.0, 0.0, 0.35, 0.09)) is None:
+        return False
+    if text_in_region(task, "act 6", (0.2, 0.35, 0.6, 0.47)) is None:
+        return False
+    task.log_info("Galactic Disaster page, going back into its Story")
+    task.click_relative(*GALACTIC_STORY_NODE)
+    task.sleep(5)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1301,7 +1365,7 @@ def place_general_steps():
 
 
 # Looked up by name at each call, so a reload that edits this list or the steps takes effect at once.
-STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_effect_panel", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
+STORY_STEPS = ("handle_remote", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_effect_panel", "handle_galactic_back_to_story", "handle_season_play_node", "handle_stage_complete", "handle_fight_first", "handle_pile_pick", "handle_walk_choice", "walk_dialogue_step", "handle_observe_stage", "handle_observe_cut_off", "handle_next_chapter",
                "handle_story_hub", "handle_act_list", "handle_off_story_path", "handle_map_drag", "handle_map_drag_back", "handle_chapter_forward")
 
 

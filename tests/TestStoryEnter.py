@@ -466,6 +466,18 @@ class TestNoSignalRegion(unittest.TestCase):
         self.assertTrue(handle_fork_steps(task))
         self.assertEqual(pressed, [(0.8, 0.52)])
 
+
+class TestSeasonStoryMap(unittest.TestCase):
+    def test_the_orange_play_button_is_found(self):
+        import numpy as np
+        from src.en.story_enter import orange_play_button
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        frame[523:565, 1074:1116] = (30, 150, 255)
+        x, y = orange_play_button(frame)
+        self.assertAlmostEqual(x, 0.57, places=2)
+        self.assertAlmostEqual(y, 0.503, places=2)
+        self.assertIsNone(orange_play_button(np.zeros((1080, 1920, 3), dtype=np.uint8)))
+
 class TestBackOnStoryMap(unittest.TestCase):
     LIVE = [FakeBox("故事", 0.106, 0.047), FakeBox("Chapter 3", 0.452, 0.04), FakeBox("Toward the Abyss", 0.57, 0.493),
             FakeBox("#07", 0.659, 0.491), FakeBox("Burning Life", 0.366, 0.631)]
