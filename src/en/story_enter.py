@@ -1190,6 +1190,32 @@ def handle_galactic_back_to_story(task, utils_sortie=None):
     task.sleep(5)
     return True
 
+
+ETCHED_TITLE = "select etched memory"
+ETCHED_PICK = (0.5, 0.45)
+ETCHED_CONFIRM = (0.89, 0.93)
+
+
+def handle_etched_memory(task, utils_sortie=None):
+    """Take the middle Etched Memory and confirm (season "A Promise Upon the Snow", 20261021-091603).
+
+    Three Memory/Opener Upgrade cards and a Confirm that stays grey until one is picked; nothing upstream knows the
+    screen, so the run sat pressing the grey button.
+
+    Returns:
+        True when the pick was made.
+    """
+    from src.en.screen import text_in_region
+
+    if text_in_region(task, ETCHED_TITLE, (0.2, 0.05, 0.8, 0.17)) is None:
+        return False
+    task.log_info("Etched Memory choice, taking the middle one")
+    task.click_relative(*ETCHED_PICK)
+    task.sleep(1.5)
+    task.click_relative(*ETCHED_CONFIRM)
+    task.sleep(3)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1348,7 +1374,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
