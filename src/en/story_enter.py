@@ -1261,6 +1261,29 @@ def handle_loot_voucher_dialogs(task, utils_sortie=None):
             return True
     return False
 
+
+def handle_settlement_loot_first(task, utils_sortie=None):
+    """On any Chaos Settlement with a voucher left and the additional loot still locked, obtain it first.
+
+    Whatever the way on reads (End of Memories, Continue), pressing it while a voucher is left only brings the
+    "continue without using" question back, and the run looped on Continue and Cancel (20261021-110618).
+
+    Returns:
+        True when Obtain was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    if all(text_in_region(task, word, (0.5, 0.0, 0.8, 0.12)) is None for word in ("settlement", "结算")):
+        return False
+    if not vouchers_left(task) or text_in_region(task, "additional loot obtained", (0.5, 0.35, 1.0, 0.45)) is not None:
+        return False
+    if text_in_region(task, "obtain", (0.78, 0.33, 1.0, 0.45)) is None:
+        return False
+    task.log_info("Settlement with a voucher left, taking the additional loot first")
+    task.click_relative(*LOOT_OBTAIN)
+    task.sleep(3)
+    return True
+
 def handle_end_of_memories(task, utils_sortie=None):
     """Finish a season story Chaos stage from its Settlement: "End of Memories" bottom right (20261021-094002).
 
@@ -1275,12 +1298,6 @@ def handle_end_of_memories(task, utils_sortie=None):
     if button is None or all(text_in_region(task, word, (0.5, 0.0, 0.8, 0.12)) is None
                              for word in ("settlement", "结算")):
         return False
-    if (vouchers_left(task) and text_in_region(task, "additional loot obtained", (0.5, 0.35, 1.0, 0.45)) is None
-            and text_in_region(task, "obtain", (0.78, 0.33, 1.0, 0.45)) is not None):
-        task.log_info("season story Settlement, taking the additional loot with a voucher first")
-        task.click_relative(*LOOT_OBTAIN)
-        task.sleep(3)
-        return True
     task.log_info("season story Settlement, pressing End of Memories")
     task.click_box(button)
     task.sleep(5)
@@ -1467,7 +1484,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_loot_voucher_dialogs", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_loot_voucher_dialogs", "handle_settlement_loot_first", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
