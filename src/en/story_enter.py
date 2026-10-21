@@ -1228,7 +1228,8 @@ def handle_end_of_memories(task, utils_sortie=None):
     from src.en.screen import text_in_region
 
     button = text_in_region(task, "end of memories", (0.75, 0.86, 1.0, 0.97))
-    if button is None or text_in_region(task, "settlement", (0.5, 0.0, 0.8, 0.12)) is None:
+    if button is None or all(text_in_region(task, word, (0.5, 0.0, 0.8, 0.12)) is None
+                             for word in ("settlement", "结算")):
         return False
     task.log_info("season story Settlement, pressing End of Memories")
     task.click_box(button)
