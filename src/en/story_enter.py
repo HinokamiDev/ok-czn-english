@@ -1235,6 +1235,29 @@ def handle_end_of_memories(task, utils_sortie=None):
     task.sleep(5)
     return True
 
+
+def handle_craft_memory_leave(task, utils_sortie=None):
+    """Leave the Memory Atelier event ("Craft Memory / Heed the Planned Revelation" or "Leave / End the event").
+
+    Upstream's event picker takes Craft Memory, the event comes straight back, and the run loops on it for minutes
+    (20261021-093210, 101611). The option needs a second press on the raised card to confirm.
+
+    Returns:
+        True when Leave was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    craft = text_in_region(task, "craft memory", (0.2, 0.7, 0.55, 0.95))
+    leave = text_in_region(task, "end the event", (0.5, 0.65, 0.8, 0.95))
+    if craft is None or leave is None:
+        return False
+    task.log_info("Memory Atelier event, leaving it")
+    task.click_box(leave)
+    task.sleep(1.5)
+    task.click_box(leave)
+    task.sleep(3)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1393,7 +1416,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
