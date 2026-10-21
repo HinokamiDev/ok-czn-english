@@ -1331,6 +1331,21 @@ def handle_craft_memory_leave(task, utils_sortie=None):
     task.sleep(3)
     return True
 
+
+def handle_handed_fight(task, utils_sortie=None):
+    """In a chaos stage the Story mode handed over, play a fight whose Auto is locked with the Story fight player.
+
+    Act 6 Chapter 1 (20261021-120208): a trial fight with the auto button padlocked; the Chaos mode read the hand
+    every frame and played nothing for minutes. The fight player only takes over once no card has been played for a
+    while, so a fight Auto is playing is left alone.
+
+    Returns:
+        What the fight player returned.
+    """
+    if not (status_folder() / "story-donus.json").exists():
+        return False
+    return handle_fight_first(task, utils_sortie)
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1489,7 +1504,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_loot_voucher_dialogs", "handle_settlement_loot_first", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_craft_memory_leave", "handle_loot_voucher_dialogs", "handle_settlement_loot_first", "handle_end_of_memories", "handle_handed_fight", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
