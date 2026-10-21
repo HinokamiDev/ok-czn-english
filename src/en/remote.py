@@ -115,6 +115,9 @@ SAVE_POPUP_CLOSE = (0.881, 0.15)
 BANNER_TEXTS = ("gotorescue", "gotoevent", "gotoshop", "rate-up")
 BANNER_REGION = (0.0, 0.70, 1.0, 1.0)
 BANNER_CLOSE = (0.968, 0.052)
+# Season introductions ("A Promise Upon the Snow ... New Season", 20261021-081239) end with Confirm at the bottom centre.
+INTRO_TEXTS = ("newseason", "season-restricted", "seasonalpower")
+INTRO_CONFIRM = (0.5, 0.93)
 # The Save Data page itself reads the same two texts, and there the X spot is its Edit Data button (20 Oct, 17:00).
 SAVE_PAGE_TEXTS = ("editdata", "cancelediting", "dismantle", "obtain")
 # A menu screen (Team Formation "主战员配置", Chaos Manifestation...) has its title top left and goes back with the arrow
@@ -172,6 +175,10 @@ def toward_lobby(task):
     if (all(find_text(task, word) is not None for word in SAVE_POPUP_TEXTS)
             and all(find_text(task, word) is None for word in SAVE_PAGE_TEXTS)):
         press(task, *SAVE_POPUP_CLOSE)
+        task.sleep(2)
+        return False
+    if sum(find_text(task, word) is not None for word in INTRO_TEXTS) >= 2:
+        press(task, *INTRO_CONFIRM)
         task.sleep(2)
         return False
     if any(find_text(task, word, BANNER_REGION) is not None for word in BANNER_TEXTS) and not in_lobby(task):

@@ -215,6 +215,13 @@ class TestRemote(unittest.TestCase):
         remote.step(task)
         self.assertEqual(task.actions, [("click", 0.968, 0.052)])
 
+    def test_a_season_introduction_is_confirmed(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("New Season", 0.5, 0.278), FakeBox("Seasonal Power", 0.103, 0.756),
+                         FakeBox("Season-Restricted", 0.897, 0.756), FakeBox("Confirm", 0.506, 0.931)])
+        remote.step(task)
+        self.assertEqual(task.actions, [("click", 0.5, 0.93)])
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])
