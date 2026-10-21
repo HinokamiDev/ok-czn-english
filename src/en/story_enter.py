@@ -1216,6 +1216,25 @@ def handle_etched_memory(task, utils_sortie=None):
     task.sleep(3)
     return True
 
+
+def handle_end_of_memories(task, utils_sortie=None):
+    """Finish a season story Chaos stage from its Settlement: "End of Memories" bottom right (20261021-094002).
+
+    Upstream knows the Chaos run's own finish button, not this one, so the run sat on the Settlement for 180s.
+
+    Returns:
+        True when it was pressed.
+    """
+    from src.en.screen import text_in_region
+
+    button = text_in_region(task, "end of memories", (0.75, 0.86, 1.0, 0.97))
+    if button is None or text_in_region(task, "settlement", (0.5, 0.0, 0.8, 0.12)) is None:
+        return False
+    task.log_info("season story Settlement, pressing End of Memories")
+    task.click_box(button)
+    task.sleep(5)
+    return True
+
 STORY_LABELS = ("故事", "story")
 LEFT_MAP_FOR = "_en_left_story_map_for"
 # A chaos stage that never opened still hands back, after this long on the map.
@@ -1374,7 +1393,7 @@ def handle_fork_steps(task, utils_sortie=None):
     return False
 
 
-GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
+GENERAL_STEPS = ("handle_remote", "handle_story_chaos_run", "handle_story_scene_skip", "handle_walk_magnifier", "handle_touch_to_start", "handle_chaos_reconnect", "handle_entry_difficulty", "handle_battle_prep", "handle_etched_memory", "handle_end_of_memories", "handle_no_signal_region", "handle_effect_panel", "handle_back_on_story_map",
                  "handle_speech_box_anywhere")
 GENERAL_MODES = ("utils_chaos", "utils_sortie")
 
