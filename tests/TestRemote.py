@@ -208,6 +208,13 @@ class TestRemote(unittest.TestCase):
         remote.step(task)
         self.assertNotIn(("click", 0.881, 0.15), task.actions)
 
+    def test_a_login_banner_is_closed_on_the_way(self):
+        self.write([{"lobiye_don": True}])
+        task = FakeTask([FakeBox("Seasonal", 0.132, 0.766), FakeBox("Rossweisse", 0.184, 0.827),
+                         FakeBox("Seasonal Combatant Rescue Rate-Up", 0.234, 0.905), FakeBox("Go to Rescue", 0.897, 0.906)])
+        remote.step(task)
+        self.assertEqual(task.actions, [("click", 0.968, 0.052)])
+
     def test_optional_steps_are_skipped_when_their_text_never_shows(self):
         self.write([{"varsa": "Notice", "tikla": [0.91, 0.119], "dene": 1},
                     {"tikla_metin": "SKIP", "istege_bagli": True, "dene": 1}, {"tus": "f"}])
