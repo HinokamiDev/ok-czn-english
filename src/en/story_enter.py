@@ -1278,6 +1278,10 @@ def handle_settlement_loot_first(task, utils_sortie=None):
     """
     from src.en.screen import text_in_region
 
+    # The Sortie mode has its own answer to this screen (it declines the loot); taking it here made the two press
+    # Obtain and Cancel in turn for minutes (20261021-220455).
+    if getattr(task, "name", "") == "自动出击模式":
+        return False
     if all(text_in_region(task, word, (0.5, 0.0, 0.8, 0.12)) is None for word in ("settlement", "结算")):
         return False
     if not vouchers_left(task) or text_in_region(task, "additional loot obtained", (0.5, 0.35, 1.0, 0.45)) is not None:
