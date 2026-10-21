@@ -1277,7 +1277,7 @@ def handle_settlement_loot_first(task, utils_sortie=None):
         return False
     if not vouchers_left(task) or text_in_region(task, "additional loot obtained", (0.5, 0.35, 1.0, 0.45)) is not None:
         return False
-    if text_in_region(task, "obtain", (0.78, 0.33, 1.0, 0.45)) is None:
+    if all(text_in_region(task, word, (0.78, 0.33, 1.0, 0.45)) is None for word in ("obtain", "获得")):
         return False
     task.log_info("Settlement with a voucher left, taking the additional loot first")
     task.click_relative(*LOOT_OBTAIN)
